@@ -1,0 +1,180 @@
+syntax = "proto3";
+
+package workout;
+
+option go_package = "golv2-learning-app/proto";
+
+// UTF-8エンコーディングを明示的に指定
+option java_string_check_utf8 = true;
+
+// ワークアウトサービス
+service WorkoutService {
+  // ワークアウトを作成
+  rpc CreateWorkout(CreateWorkoutRequest) returns (CreateWorkoutResponse);
+  
+  // ワークアウトを取得
+  rpc GetWorkout(GetWorkoutRequest) returns (GetWorkoutResponse);
+  
+  // ワークアウトを更新
+  rpc UpdateWorkout(UpdateWorkoutRequest) returns (UpdateWorkoutResponse);
+  
+  // ワークアウトを削除
+  rpc DeleteWorkout(DeleteWorkoutRequest) returns (DeleteWorkoutResponse);
+  
+  // ワークアウト一覧を取得
+  rpc ListWorkouts(ListWorkoutsRequest) returns (ListWorkoutsResponse);
+  
+  // ワークアウト統計を取得
+  rpc GetWorkoutStats(GetWorkoutStatsRequest) returns (GetWorkoutStatsResponse);
+  
+  // 高強度ワークアウト一覧を取得（ジェネリクス使用例）
+  rpc GetHighIntensityWorkouts(GetHighIntensityWorkoutsRequest) returns (GetHighIntensityWorkoutsResponse);
+}
+
+// ワークアウト情報
+message Workout {
+  int32 id = 1;
+  string name = 2;
+  string description = 3;
+  WorkoutStatus status = 4;
+  Difficulty difficulty = 5;
+  MuscleGroup muscle_group = 6;
+  int32 sets = 7;
+  int32 reps = 8;
+  double weight = 9;
+  string notes = 10;
+  string created_at = 11;
+  string updated_at = 12;
+  string completed_at = 13;
+}
+
+// ワークアウトステータス
+enum WorkoutStatus {
+  WORKOUT_STATUS_UNSPECIFIED = 0;
+  WORKOUT_STATUS_PLANNED = 1;      // 予定
+  WORKOUT_STATUS_IN_PROGRESS = 2;  // 実行中
+  WORKOUT_STATUS_COMPLETED = 3;    // 完了
+  WORKOUT_STATUS_SKIPPED = 4;      // スキップ（筋肉痛で...）
+}
+
+// 難易度
+enum Difficulty {
+  DIFFICULTY_UNSPECIFIED = 0;
+  DIFFICULTY_BEGINNER = 1;         // 初心者
+  DIFFICULTY_INTERMEDIATE = 2;     // 中級者
+  DIFFICULTY_ADVANCED = 3;         // 上級者
+  DIFFICULTY_BEAST = 4;            // 野獣級
+}
+
+// 筋肉群
+enum MuscleGroup {
+  UNSPECIFIED = 0;    // 未指定
+  CHEST = 1;          // 胸
+  BACK = 2;           // 背中
+  LEGS = 3;           // 脚
+  SHOULDERS = 4;      // 肩
+  ARMS = 5;           // 腕
+  ABS = 6;            // 腹筋
+  CORE = 7;           // 体幹
+  GLUTES = 8;         // 臀部
+  CARDIO = 9;         // 有酸素
+  FULL_BODY = 10;     // 全身
+}
+
+// ワークアウト作成リクエスト
+message CreateWorkoutRequest {
+  string name = 1;
+  string description = 2;
+  Difficulty difficulty = 3;
+  MuscleGroup muscle_group = 4;
+  int32 sets = 5;
+  int32 reps = 6;
+  double weight = 7;
+  string notes = 8;
+}
+
+// ワークアウト作成レスポンス
+message CreateWorkoutResponse {
+  Workout workout = 1;
+  string message = 2;
+}
+
+// ワークアウト取得リクエスト
+message GetWorkoutRequest {
+  int32 id = 1;
+}
+
+// ワークアウト取得レスポンス
+message GetWorkoutResponse {
+  Workout workout = 1;
+}
+
+// ワークアウト更新リクエスト
+message UpdateWorkoutRequest {
+  int32 id = 1;
+  string name = 2;
+  string description = 3;
+  WorkoutStatus status = 4;
+  Difficulty difficulty = 5;
+  MuscleGroup muscle_group = 6;
+  int32 sets = 7;
+  int32 reps = 8;
+  double weight = 9;
+  string notes = 10;
+}
+
+// ワークアウト更新レスポンス
+message UpdateWorkoutResponse {
+  Workout workout = 1;
+  string message = 2;
+}
+
+// ワークアウト削除リクエスト
+message DeleteWorkoutRequest {
+  int32 id = 1;
+}
+
+// ワークアウト削除レスポンス
+message DeleteWorkoutResponse {
+  string message = 1;
+}
+
+// ワークアウト一覧取得リクエスト
+message ListWorkoutsRequest {
+  WorkoutStatus status_filter = 1;
+  Difficulty difficulty_filter = 2;
+  MuscleGroup muscle_group_filter = 3;
+}
+
+// ワークアウト一覧取得レスポンス
+message ListWorkoutsResponse {
+  repeated Workout workouts = 1;
+  int32 total_count = 2;
+}
+
+// ワークアウト統計取得リクエスト
+message GetWorkoutStatsRequest {
+  string period = 1; // "today", "week", "month"
+}
+
+// ワークアウト統計取得レスポンス
+message GetWorkoutStatsResponse {
+  int32 total_workouts = 1;
+  int32 completed_workouts = 2;
+  int32 skipped_workouts = 3;
+  double total_weight_lifted = 4;
+  map<string, int32> muscle_group_stats = 5;
+  string message = 6;
+}
+
+// 高強度ワークアウト取得リクエスト
+message GetHighIntensityWorkoutsRequest {
+  // 特にパラメータは不要（フィルタ条件は固定）
+}
+
+// 高強度ワークアウト取得レスポンス
+message GetHighIntensityWorkoutsResponse {
+  repeated Workout workouts = 1;
+  int32 total_count = 2;
+  string message = 3;
+}

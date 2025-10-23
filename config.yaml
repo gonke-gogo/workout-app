@@ -1,0 +1,16 @@
+app:
+  name: "GoLv2 Learning Task Manager"
+  version: "1.0.0"
+  description: "Go言語Lv2評価基準を学習するためのタスク管理アプリ"
+
+database:
+  type: "memory"
+  max_tasks: 1000
+
+logging:
+  level: "info"
+  format: "json"
+
+server:
+  port: 8080
+  host: "localhost"
