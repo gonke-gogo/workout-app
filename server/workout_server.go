@@ -64,7 +64,6 @@ func (s *GRPCServer) CreateWorkout(ctx context.Context, req *proto.CreateWorkout
 		Notes:        req.Notes,
 	}
 
-	// ビジネスロジック層に処理を委譲
 	workout, err := s.workoutManager.CreateWorkout(usecaseReq)
 	if err != nil {
 		return &proto.CreateWorkoutResponse{
@@ -104,18 +103,27 @@ func (s *GRPCServer) UpdateWorkout(ctx context.Context, req *proto.UpdateWorkout
 	exerciseType := convertProtoExerciseType(req.ExerciseType)
 	log.Printf("✏️ ワークアウトを更新中: ID %d (%s)", req.Id, exerciseType.Japanese())
 
-	// proto → usecase.UpdateWorkoutRequest への変換
+	// proto → usecase.UpdateWorkoutRequest への変換（ポインタ型）
+	description := req.Description
+	difficulty := convertProtoDifficulty(req.Difficulty)
+	muscleGroup := convertProtoMuscleGroup(req.MuscleGroup)
+	status := convertProtoWorkoutStatus(req.Status)
+	sets := int(req.Sets)
+	reps := int(req.Reps)
+	weight := req.Weight
+	notes := req.Notes
+
 	usecaseReq := usecase.UpdateWorkoutRequest{
 		ID:           domain.WorkoutID(req.Id),
 		ExerciseType: exerciseType,
-		Description:  req.Description,
-		Difficulty:   convertProtoDifficulty(req.Difficulty),
-		MuscleGroup:  convertProtoMuscleGroup(req.MuscleGroup),
-		Status:       convertProtoWorkoutStatus(req.Status),
-		Sets:         int(req.Sets),
-		Reps:         int(req.Reps),
-		Weight:       req.Weight,
-		Notes:        req.Notes,
+		Description:  &description,
+		Difficulty:   &difficulty,
+		MuscleGroup:  &muscleGroup,
+		Status:       &status,
+		Sets:         &sets,
+		Reps:         &reps,
+		Weight:       &weight,
+		Notes:        &notes,
 	}
 
 	// ビジネスロジック層に処理を委譲

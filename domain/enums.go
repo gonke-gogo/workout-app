@@ -1,26 +1,26 @@
 package domain
 
-// WorkoutStatus ワークアウトステータスの型定義
+// WorkoutStatus ワークアウトステータス
 type WorkoutStatus int
 
 const (
-	WorkoutStatusPlanned    WorkoutStatus = iota // 予定
-	WorkoutStatusInProgress                      // 実行中
-	WorkoutStatusCompleted                       // 完了
-	WorkoutStatusSkipped                         // スキップ（筋肉痛で...）
+	WorkoutStatusPlanned WorkoutStatus = iota
+	WorkoutStatusInProgress
+	WorkoutStatusCompleted
+	WorkoutStatusSkipped
 )
 
-// Difficulty 難易度の型定義
+// Difficulty 難易度
 type Difficulty int
 
 const (
 	DifficultyBeginner     Difficulty = iota // 初心者
 	DifficultyIntermediate                   // 中級者
 	DifficultyAdvanced                       // 上級者
-	DifficultyBeast                          // 化け物
+	DifficultyBeast                          // 化け物、きつい、大変
 )
 
-// MuscleGroup 筋肉群の型定義
+// MuscleGroup 筋肉群
 type MuscleGroup int
 
 const (
@@ -52,7 +52,7 @@ const (
 	HighPull                                // ハイプル
 )
 
-// String メソッド（日本語表示）
+// Japanese （日本語表示のため）
 func (mg MuscleGroup) Japanese() string {
 	switch mg {
 	case Chest:
@@ -80,35 +80,7 @@ func (mg MuscleGroup) Japanese() string {
 	}
 }
 
-// English メソッド（英語表示）
-func (mg MuscleGroup) English() string {
-	switch mg {
-	case Chest:
-		return "Chest"
-	case Back:
-		return "Back"
-	case Legs:
-		return "Legs"
-	case Shoulders:
-		return "Shoulders"
-	case Arms:
-		return "Arms"
-	case Abs:
-		return "Abs"
-	case Core:
-		return "Core"
-	case Glutes:
-		return "Glutes"
-	case Cardio:
-		return "Cardio"
-	case FullBody:
-		return "Full Body"
-	default:
-		return "Unspecified"
-	}
-}
-
-// Japanese メソッド（日本語表示）
+// Japanese （日本語表示のため）
 func (et ExerciseType) Japanese() string {
 	switch et {
 	case BenchPress:
@@ -129,29 +101,5 @@ func (et ExerciseType) Japanese() string {
 		return "ハイプル"
 	default:
 		return "未指定"
-	}
-}
-
-// English メソッド（英語表示）
-func (et ExerciseType) English() string {
-	switch et {
-	case BenchPress:
-		return "Bench Press"
-	case Squat:
-		return "Squat"
-	case Deadlift:
-		return "Deadlift"
-	case DumbbellShoulder:
-		return "Dumbbell Shoulder Press"
-	case PullUp:
-		return "Pull Up"
-	case SideRaise:
-		return "Side Raise"
-	case OneHandRow:
-		return "One Hand Row"
-	case HighPull:
-		return "High Pull"
-	default:
-		return "Unspecified"
 	}
 }

@@ -219,7 +219,7 @@
     type Difficulty int
     
     // レシーバーメソッド定義
-    func (mg MuscleGroup) String() string {
+    func (mg MuscleGroup) Japanese() string {
         switch mg {
         case Chest:
             return "胸"
@@ -228,29 +228,20 @@
         // ...
         }
     }
-    
-    func (mg MuscleGroup) English() string {
-        switch mg {
-        case Chest:
-            return "Chest"
-        // ...
-        }
-    }
     ```
   
   - 使い方
     ```go
     muscle := domain.Chest
-    fmt.Printf("%s", muscle.Japanese())   // "胸" (明示的に呼ぶ)
-    fmt.Printf("%s", muscle.English())    // "Chest"
-    fmt.Printf("%d", muscle)              // "0" (数値として出力される)
+    fmt.Printf("%s", muscle.Japanese())   // "胸" (Japanese()メソッドで日本語表示)
+    fmt.Printf("%d", muscle)              // "1" (基底型のint値として出力)
     ```
   
   - メリット
     - Enum値（数値）を人間が読める文字列に変換できる
     - 型に振る舞いを持たせられる（オブジェクト指向的）
-    - 同じ型に複数のメソッドを定義できる（Japanese, English, Validate等）
-    - 用途に応じてメソッドを使い分けられる（日本語表示、英語表示など）
+    - 同じ型に複数のメソッドを定義できる（Japanese, Validate等）
+    - 必要に応じて新しいメソッドを追加できる（柔軟性が高い）
   
   - レシーバーの種類
     - 値レシーバー: `func (mg MuscleGroup)` - 読み取り専用、コピーが渡される

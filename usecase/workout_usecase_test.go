@@ -230,18 +230,27 @@ func TestUpdateWorkout_WithMock_TableDriven(t *testing.T) {
 				}
 			}
 
-			// テスト実行
+			// テスト実行（ポインタ型に対応）
+			sets := tt.updateSets
+			reps := tt.updateReps
+			weight := tt.updateWeight
+			notes := ""
+			description := ""
+			status := domain.WorkoutStatusPlanned
+			difficulty := domain.DifficultyIntermediate
+			muscleGroup := domain.Chest
+
 			err := manager.UpdateWorkout(UpdateWorkoutRequest{
 				ID:           tt.updateID,
 				ExerciseType: tt.updateType,
-				Sets:         tt.updateSets,
-				Reps:         tt.updateReps,
-				Weight:       tt.updateWeight,
-				Notes:        "",
-				Description:  "",
-				Status:       domain.WorkoutStatusPlanned,
-				Difficulty:   domain.DifficultyIntermediate,
-				MuscleGroup:  domain.Chest,
+				Sets:         &sets,
+				Reps:         &reps,
+				Weight:       &weight,
+				Notes:        &notes,
+				Description:  &description,
+				Status:       &status,
+				Difficulty:   &difficulty,
+				MuscleGroup:  &muscleGroup,
 			})
 
 			// エラーチェック
