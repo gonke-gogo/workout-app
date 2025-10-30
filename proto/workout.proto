@@ -34,7 +34,7 @@ service WorkoutService {
 // ワークアウト情報
 message Workout {
   int32 id = 1;
-  string name = 2;
+  ExerciseType exercise_type = 2;
   string description = 3;
   WorkoutStatus status = 4;
   Difficulty difficulty = 5;
@@ -81,9 +81,22 @@ enum MuscleGroup {
   FULL_BODY = 10;     // 全身
 }
 
+// トレーニング種目
+enum ExerciseType {
+  EXERCISE_UNSPECIFIED = 0;          // 未指定
+  EXERCISE_BENCH_PRESS = 1;          // ベンチプレス
+  EXERCISE_SQUAT = 2;                // スクワット
+  EXERCISE_DEADLIFT = 3;             // デッドリフト
+  EXERCISE_DUMBBELL_SHOULDER = 4;    // ダンベルショルダープレス
+  EXERCISE_PULL_UP = 5;              // 懸垂
+  EXERCISE_SIDE_RAISE = 6;           // サイドレイズ
+  EXERCISE_ONE_HAND_ROW = 7;         // ワンハンドロー
+  EXERCISE_HIGH_PULL = 8;            // ハイプル
+}
+
 // ワークアウト作成リクエスト
 message CreateWorkoutRequest {
-  string name = 1;
+  ExerciseType exercise_type = 1;
   string description = 2;
   Difficulty difficulty = 3;
   MuscleGroup muscle_group = 4;
@@ -112,7 +125,7 @@ message GetWorkoutResponse {
 // ワークアウト更新リクエスト
 message UpdateWorkoutRequest {
   int32 id = 1;
-  string name = 2;
+  ExerciseType exercise_type = 2;
   string description = 3;
   WorkoutStatus status = 4;
   Difficulty difficulty = 5;
@@ -150,6 +163,7 @@ message ListWorkoutsRequest {
 message ListWorkoutsResponse {
   repeated Workout workouts = 1;
   int32 total_count = 2;
+  string message = 3;  // サマリーメッセージ
 }
 
 // ワークアウト統計取得リクエスト

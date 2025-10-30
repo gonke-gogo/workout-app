@@ -1,66 +1,74 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"os"
 	"strconv"
 	"time"
 
+	"golv2-learning-app/domain"
 	"golv2-learning-app/repository"
 	"golv2-learning-app/server"
+	"golv2-learning-app/usecase"
 )
 
-func main() {
-	var (
-		port   = flag.Int("port", 50051, "gRPC server port")
-		dbHost = flag.String("db-host", "localhost", "Database host")
-		dbPort = flag.Int("db-port", 3306, "Database port")
-		dbName = flag.String("db-name", "workoutdb", "Database name")
-		dbUser = flag.String("db-user", "workoutuser", "Database user")
-		dbPass = flag.String("db-pass", "workoutpass", "Database password")
-	)
-	flag.Parse()
+// getEnv 環境変数を取得（必須）
+func getEnv(key string, hideValue bool) string {
+	value := os.Getenv(key)
+	if value == "" {
+		log.Fatalf("❌ 環境変数 %s が設定されていません", key)
+	}
+	if hideValue {
+		log.Printf("✅ %s: [HIDDEN]", key)
+	} else {
+		log.Printf("✅ %s: %s", key, value)
+	}
+	return value
+}
 
-	// 環境変数から設定を読み込み
+// getEnvWithDefault 環境変数を取得（デフォルト値あり）
+func getEnvWithDefault(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		log.Printf("⚠️  %s not set, using default: %s", key, defaultValue)
+		return defaultValue
+	}
+	log.Printf("✅ %s: %s", key, value)
+	return value
+}
+
+func main() {
 	log.Printf("💪 筋トレアプリを起動中...")
 	log.Printf("🔥 環境変数を読み込み中...")
 
-	if envHost := os.Getenv("DB_HOST"); envHost != "" {
-		*dbHost = envHost
-		log.Printf("DB_HOST from env: %s", envHost)
+	dbHost := getEnv("DB_HOST", false)
+	dbName := getEnv("DB_NAME", false)
+	dbUser := getEnv("DB_USER", false)
+	dbPass := getEnv("DB_PASSWORD", true)
+
+	var err error
+	var dbPort, serverPort int
+
+	dbPortStr := getEnvWithDefault("DB_PORT", "3306")
+	dbPort, err = strconv.Atoi(dbPortStr)
+	if err != nil {
+		log.Fatalf("❌ DB_PORT is invalid: %s", dbPortStr)
 	}
-	if envPort := os.Getenv("DB_PORT"); envPort != "" {
-		log.Printf("DB_PORT from env: %s", envPort)
-		if port, err := strconv.Atoi(envPort); err != nil {
-			log.Printf("Invalid DB_PORT: %s, using default: %d", envPort, *dbPort)
-		} else {
-			*dbPort = port
-			log.Printf("DB_PORT parsed: %d", *dbPort)
-		}
-	}
-	if envName := os.Getenv("DB_NAME"); envName != "" {
-		*dbName = envName
-		log.Printf("DB_NAME from env: %s", envName)
-	}
-	if envUser := os.Getenv("DB_USER"); envUser != "" {
-		*dbUser = envUser
-		log.Printf("DB_USER from env: %s", envUser)
-	}
-	if envPass := os.Getenv("DB_PASSWORD"); envPass != "" {
-		*dbPass = envPass
-		log.Printf("DB_PASSWORD from env: [HIDDEN]")
+
+	serverPortStr := getEnvWithDefault("GRPC_PORT", "50051")
+	serverPort, err = strconv.Atoi(serverPortStr)
+	if err != nil {
+		log.Fatalf("❌ GRPC_PORT is invalid: %s", serverPortStr)
 	}
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local",
-		*dbUser, *dbPass, *dbHost, *dbPort, *dbName)
+		dbUser, dbPass, dbHost, dbPort, dbName)
 
 	log.Printf("🏋️ Database connection info: Host=%s, Port=%d, Database=%s, User=%s",
-		*dbHost, *dbPort, *dbName, *dbUser)
+		dbHost, dbPort, dbName, dbUser)
 
-	var repo repository.WorkoutRepository
-	var err error
+	var repo domain.WorkoutRepository
 	maxRetries := 30
 	retryDelay := 2 * time.Second
 
@@ -82,19 +90,19 @@ func main() {
 	}
 	defer repo.Close()
 
-	log.Printf("✅ MySQLデータベースに接続しました: %s:%d/%s", *dbHost, *dbPort, *dbName)
+	log.Printf("✅ MySQLデータベースに接続しました: %s:%d/%s", dbHost, dbPort, dbName)
 
 	// ワークアウトマネージャーを作成（MySQLリポジトリを使用）
-	workoutManager := server.NewWorkoutManagerWithRepository(repo)
+	workoutManager := usecase.NewWorkoutManagerWithRepository(repo)
 
 	// gRPCサーバーの作成と起動
 	grpcServer := server.NewGRPCServer(workoutManager)
 
-	log.Printf("🚀 ポート %d でgRPCサーバーを起動中...", *port)
-	log.Printf("🎯 Evansで接続: evans -r repl -p %d", *port)
+	log.Printf("🚀 ポート %d でgRPCサーバーを起動中...", serverPort)
+	log.Printf("🎯 Evansで接続: evans -r repl -p %d", serverPort)
 	log.Printf("💪 今日も筋肉を鍛えましょう！")
 
-	if err := grpcServer.Start(*port); err != nil {
+	if err := grpcServer.Start(serverPort); err != nil {
 		log.Fatalf("💥 gRPCサーバーの起動に失敗: %v", err)
 	}
 }

@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"golv2-learning-app/domain"
 	"golv2-learning-app/proto"
-	"golv2-learning-app/repository"
+	"golv2-learning-app/usecase"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -18,11 +19,11 @@ import (
 // GRPCServer gRPCサーバー構造体
 type GRPCServer struct {
 	proto.UnimplementedWorkoutServiceServer
-	workoutManager *WorkoutManager
+	workoutManager *usecase.WorkoutManager
 }
 
 // NewGRPCServer 新しいgRPCサーバーを作成
-func NewGRPCServer(workoutManager *WorkoutManager) *GRPCServer {
+func NewGRPCServer(workoutManager *usecase.WorkoutManager) *GRPCServer {
 	return &GRPCServer{
 		workoutManager: workoutManager,
 	}
@@ -46,83 +47,79 @@ func (s *GRPCServer) Start(port int) error {
 	return grpcServer.Serve(lis)
 }
 
-// CreateWorkout ワークアウトを作成（Go基礎技術による最適化）
+// CreateWorkout ワークアウトを作成（プレゼンテーション層）
 func (s *GRPCServer) CreateWorkout(ctx context.Context, req *proto.CreateWorkoutRequest) (*proto.CreateWorkoutResponse, error) {
-	log.Printf("💪 新しいワークアウトを作成中: %s", req.Name)
+	exerciseType := convertProtoExerciseType(req.ExerciseType)
+	log.Printf("💪 新しいワークアウトを作成中: %s", exerciseType.Japanese())
 
-	// Go基礎技術1: append最適化 - 事前容量確保
-	// 最大8個のオプションがあるので事前に容量を確保
-	opts := make([]WorkoutOption, 0, 8)
-
-	if req.Description != "" {
-		opts = append(opts, WorkoutOption{Description: req.Description})
-	}
-	if req.Difficulty != proto.Difficulty_DIFFICULTY_UNSPECIFIED {
-		opts = append(opts, WorkoutOption{Difficulty: convertProtoDifficulty(req.Difficulty)})
-	}
-	if req.MuscleGroup != proto.MuscleGroup_UNSPECIFIED {
-		opts = append(opts, WorkoutOption{MuscleGroup: convertProtoMuscleGroup(req.MuscleGroup)})
-	}
-	if req.Sets > 0 {
-		opts = append(opts, WorkoutOption{Sets: int(req.Sets)})
-	}
-	if req.Reps > 0 {
-		opts = append(opts, WorkoutOption{Reps: int(req.Reps)})
-	}
-	if req.Weight > 0 {
-		opts = append(opts, WorkoutOption{Weight: req.Weight})
-	}
-	if req.Notes != "" {
-		opts = append(opts, WorkoutOption{Notes: req.Notes})
+	// proto → usecase.CreateWorkoutRequest への変換
+	usecaseReq := usecase.CreateWorkoutRequest{
+		ExerciseType: exerciseType,
+		Description:  req.Description,
+		Difficulty:   convertProtoDifficulty(req.Difficulty),
+		MuscleGroup:  convertProtoMuscleGroup(req.MuscleGroup),
+		Sets:         req.Sets,
+		Reps:         req.Reps,
+		Weight:       req.Weight,
+		Notes:        req.Notes,
 	}
 
-	workout, err := s.workoutManager.CreateWorkout(req.Name, opts...)
+	// ビジネスロジック層に処理を委譲
+	workout, err := s.workoutManager.CreateWorkout(usecaseReq)
 	if err != nil {
-		// Go基礎技術2: strings.Builder + 事前容量確保でエラーメッセージ構築
 		return &proto.CreateWorkoutResponse{
 			Workout: nil,
-			Message: s.buildErrorMessage("ワークアウト作成", req.Name, err.Error()),
+			Message: s.buildErrorMessage("ワークアウト作成", exerciseType.Japanese(), err.Error()),
 		}, nil
 	}
 
+	// domain → proto への変換（プレゼンテーション層の責務）
 	protoWorkout := convertToProtoWorkout(workout)
 	return &proto.CreateWorkoutResponse{
 		Workout: protoWorkout,
-		Message: s.buildSuccessMessage("作成", req.Name),
+		Message: s.buildSuccessMessage("作成", exerciseType.Japanese()),
 	}, nil
 }
 
-// GetWorkout ワークアウトを取得
+// GetWorkout ワークアウトを取得（プレゼンテーション層）
 func (s *GRPCServer) GetWorkout(ctx context.Context, req *proto.GetWorkoutRequest) (*proto.GetWorkoutResponse, error) {
 	log.Printf("🔍 ワークアウトを取得中: ID %d", req.Id)
 
-	workout, err := s.workoutManager.GetWorkout(repository.WorkoutID(req.Id))
+	// ビジネスロジック層に処理を委譲
+	workout, err := s.workoutManager.GetWorkout(domain.WorkoutID(req.Id))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get workout: %v", err)
 	}
 
+	// domain → proto への変換（プレゼンテーション層の責務）
 	protoWorkout := convertToProtoWorkout(workout)
 	return &proto.GetWorkoutResponse{
 		Workout: protoWorkout,
 	}, nil
 }
 
-// UpdateWorkout ワークアウトを更新
+// UpdateWorkout ワークアウトを更新（プレゼンテーション層）
 func (s *GRPCServer) UpdateWorkout(ctx context.Context, req *proto.UpdateWorkoutRequest) (*proto.UpdateWorkoutResponse, error) {
-	log.Printf("✏️ ワークアウトを更新中: ID %d", req.Id)
+	// proto → domain への変換
+	exerciseType := convertProtoExerciseType(req.ExerciseType)
+	log.Printf("✏️ ワークアウトを更新中: ID %d (%s)", req.Id, exerciseType.Japanese())
 
-	err := s.workoutManager.UpdateWorkout(
-		repository.WorkoutID(req.Id),
-		req.Name,
-		req.Description,
-		convertProtoWorkoutStatus(req.Status),
-		convertProtoDifficulty(req.Difficulty),
-		convertProtoMuscleGroup(req.MuscleGroup),
-		int(req.Sets),
-		int(req.Reps),
-		req.Weight,
-		req.Notes,
-	)
+	// proto → usecase.UpdateWorkoutRequest への変換
+	usecaseReq := usecase.UpdateWorkoutRequest{
+		ID:           domain.WorkoutID(req.Id),
+		ExerciseType: exerciseType,
+		Description:  req.Description,
+		Difficulty:   convertProtoDifficulty(req.Difficulty),
+		MuscleGroup:  convertProtoMuscleGroup(req.MuscleGroup),
+		Status:       convertProtoWorkoutStatus(req.Status),
+		Sets:         int(req.Sets),
+		Reps:         int(req.Reps),
+		Weight:       req.Weight,
+		Notes:        req.Notes,
+	}
+
+	// ビジネスロジック層に処理を委譲
+	err := s.workoutManager.UpdateWorkout(usecaseReq)
 	if err != nil {
 		return &proto.UpdateWorkoutResponse{
 			Workout: nil,
@@ -130,8 +127,8 @@ func (s *GRPCServer) UpdateWorkout(ctx context.Context, req *proto.UpdateWorkout
 		}, nil
 	}
 
-	// 更新されたワークアウトを取得
-	workout, err := s.workoutManager.GetWorkout(repository.WorkoutID(req.Id))
+	// 更新されたワークアウトを取得（表示用）
+	workout, err := s.workoutManager.GetWorkout(domain.WorkoutID(req.Id))
 	if err != nil {
 		return &proto.UpdateWorkoutResponse{
 			Workout: nil,
@@ -139,18 +136,20 @@ func (s *GRPCServer) UpdateWorkout(ctx context.Context, req *proto.UpdateWorkout
 		}, nil
 	}
 
+	// domain → proto への変換（プレゼンテーション層の責務）
 	protoWorkout := convertToProtoWorkout(workout)
 	return &proto.UpdateWorkoutResponse{
 		Workout: protoWorkout,
-		Message: fmt.Sprintf("✅ ワークアウト「%s」が更新されました！", req.Name),
+		Message: fmt.Sprintf("✅ ワークアウト「%s」が更新されました！", exerciseType.Japanese()),
 	}, nil
 }
 
-// DeleteWorkout ワークアウトを削除
+// DeleteWorkout ワークアウトを削除（プレゼンテーション層）
 func (s *GRPCServer) DeleteWorkout(ctx context.Context, req *proto.DeleteWorkoutRequest) (*proto.DeleteWorkoutResponse, error) {
 	log.Printf("🗑️ ワークアウトを削除中: ID %d", req.Id)
 
-	err := s.workoutManager.DeleteWorkout(repository.WorkoutID(req.Id))
+	// ビジネスロジック層に処理を委譲
+	err := s.workoutManager.DeleteWorkout(domain.WorkoutID(req.Id))
 	if err != nil {
 		return &proto.DeleteWorkoutResponse{
 			Message: fmt.Sprintf("❌ ワークアウト削除に失敗しました: %v", err),
@@ -162,10 +161,11 @@ func (s *GRPCServer) DeleteWorkout(ctx context.Context, req *proto.DeleteWorkout
 	}, nil
 }
 
-// ListWorkouts ワークアウト一覧を取得
+// ListWorkouts ワークアウト一覧を取得（プレゼンテーション層）
 func (s *GRPCServer) ListWorkouts(ctx context.Context, req *proto.ListWorkoutsRequest) (*proto.ListWorkoutsResponse, error) {
 	log.Printf("📋 ワークアウト一覧を取得中...")
 
+	// フィルター条件の変換（proto → domain）
 	var statusFilter *int
 	var difficultyFilter *int
 	var muscleGroupFilter *int
@@ -188,30 +188,20 @@ func (s *GRPCServer) ListWorkouts(ctx context.Context, req *proto.ListWorkoutsRe
 		return nil, fmt.Errorf("failed to list workouts: %v", err)
 	}
 
-	// Go基礎技術: make関数でcapacity事前指定 + 効率的なフィルタリング
-	// 全件数を基準に容量を確保（フィルタリング後は通常8-9割程度残る）
 	convertedWorkouts := make([]*proto.Workout, 0, len(workouts))
-	validCount := 0
-
-	// 1回のループでフィルタリング + 変換を同時実行（効率化）
 	for _, workout := range workouts {
-		// Go基礎技術: 条件チェック（ジェネリクス関数を使わず直接処理で高速化）
-		if workout.Name != "" && workout.ID > 0 {
-			convertedWorkouts = append(convertedWorkouts, convertToProtoWorkout(workout))
-			validCount++
-		}
+		convertedWorkouts = append(convertedWorkouts, convertToProtoWorkout(workout))
 	}
 
-	log.Printf("🔍 フィルタリング結果: 全%d件中、有効なワークアウト%d件を返します", len(workouts), validCount)
+	// サマリーメッセージを生成
+	summary := s.buildWorkoutSummary(workouts)
 
-	count, err := s.workoutManager.GetWorkoutCount()
-	if err != nil {
-		count = len(workouts) // フォールバック
-	}
+	log.Printf("✅ %d件のワークアウトを返却します", len(convertedWorkouts))
 
 	return &proto.ListWorkoutsResponse{
 		Workouts:   convertedWorkouts,
-		TotalCount: int32(count),
+		TotalCount: int32(len(convertedWorkouts)),
+		Message:    summary,
 	}, nil
 }
 
@@ -247,7 +237,7 @@ func (s *GRPCServer) buildSuccessMessage(operation, target string) string {
 }
 
 // buildWorkoutSummary Go基礎技術による効率的なワークアウトサマリー構築
-func (s *GRPCServer) buildWorkoutSummary(workouts []*repository.Workout) string {
+func (s *GRPCServer) buildWorkoutSummary(workouts []*domain.Workout) string {
 	if len(workouts) == 0 {
 		return "📋 ワークアウトがありません"
 	}
@@ -266,7 +256,7 @@ func (s *GRPCServer) buildWorkoutSummary(workouts []*repository.Workout) string 
 		if i > 0 {
 			builder.WriteString("\n")
 		}
-		builder.WriteString(fmt.Sprintf("  %d. %s (%s)", i+1, workout.Name, workout.MuscleGroup))
+		builder.WriteString(fmt.Sprintf("  %d. %s (%s)", i+1, workout.ExerciseType.Japanese(), workout.MuscleGroup.Japanese()))
 
 		if workout.Sets > 0 && workout.Reps > 0 {
 			builder.WriteString(fmt.Sprintf(" - %dセット×%d回", workout.Sets, workout.Reps))
@@ -337,20 +327,20 @@ func (s *GRPCServer) GetHighIntensityWorkouts(ctx context.Context, req *proto.Ge
 }
 
 // 変換関数
-func convertToProtoWorkout(workout *repository.Workout) *proto.Workout {
+func convertToProtoWorkout(workout *domain.Workout) *proto.Workout {
 	protoWorkout := &proto.Workout{
-		Id:          int32(workout.ID),
-		Name:        workout.Name,
-		Description: workout.Description,
-		Status:      convertToProtoWorkoutStatus(workout.Status),
-		Difficulty:  convertToProtoDifficulty(workout.Difficulty),
-		MuscleGroup: convertToProtoMuscleGroup(workout.MuscleGroup),
-		Sets:        int32(workout.Sets),
-		Reps:        int32(workout.Reps),
-		Weight:      workout.Weight,
-		Notes:       workout.Notes,
-		CreatedAt:   workout.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:   workout.UpdatedAt.Format(time.RFC3339),
+		Id:           int32(workout.ID),
+		ExerciseType: convertToProtoExerciseType(workout.ExerciseType),
+		Description:  workout.Description,
+		Status:       convertToProtoWorkoutStatus(workout.Status),
+		Difficulty:   convertToProtoDifficulty(workout.Difficulty),
+		MuscleGroup:  convertToProtoMuscleGroup(workout.MuscleGroup),
+		Sets:         int32(workout.Sets),
+		Reps:         int32(workout.Reps),
+		Weight:       workout.Weight,
+		Notes:        workout.Notes,
+		CreatedAt:    workout.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    workout.UpdatedAt.Format(time.RFC3339),
 	}
 
 	if workout.CompletedAt != nil {
@@ -360,116 +350,164 @@ func convertToProtoWorkout(workout *repository.Workout) *proto.Workout {
 	return protoWorkout
 }
 
-func convertToProtoWorkoutStatus(status repository.WorkoutStatus) proto.WorkoutStatus {
+func convertToProtoWorkoutStatus(status domain.WorkoutStatus) proto.WorkoutStatus {
 	switch status {
-	case repository.WorkoutStatusPlanned:
+	case domain.WorkoutStatusPlanned:
 		return proto.WorkoutStatus_WORKOUT_STATUS_PLANNED
-	case repository.WorkoutStatusInProgress:
+	case domain.WorkoutStatusInProgress:
 		return proto.WorkoutStatus_WORKOUT_STATUS_IN_PROGRESS
-	case repository.WorkoutStatusCompleted:
+	case domain.WorkoutStatusCompleted:
 		return proto.WorkoutStatus_WORKOUT_STATUS_COMPLETED
-	case repository.WorkoutStatusSkipped:
+	case domain.WorkoutStatusSkipped:
 		return proto.WorkoutStatus_WORKOUT_STATUS_SKIPPED
 	default:
 		return proto.WorkoutStatus_WORKOUT_STATUS_UNSPECIFIED
 	}
 }
 
-func convertProtoWorkoutStatus(status proto.WorkoutStatus) repository.WorkoutStatus {
+func convertProtoWorkoutStatus(status proto.WorkoutStatus) domain.WorkoutStatus {
 	switch status {
 	case proto.WorkoutStatus_WORKOUT_STATUS_PLANNED:
-		return repository.WorkoutStatusPlanned
+		return domain.WorkoutStatusPlanned
 	case proto.WorkoutStatus_WORKOUT_STATUS_IN_PROGRESS:
-		return repository.WorkoutStatusInProgress
+		return domain.WorkoutStatusInProgress
 	case proto.WorkoutStatus_WORKOUT_STATUS_COMPLETED:
-		return repository.WorkoutStatusCompleted
+		return domain.WorkoutStatusCompleted
 	case proto.WorkoutStatus_WORKOUT_STATUS_SKIPPED:
-		return repository.WorkoutStatusSkipped
+		return domain.WorkoutStatusSkipped
 	default:
-		return repository.WorkoutStatusPlanned
+		return domain.WorkoutStatusPlanned
 	}
 }
 
-func convertToProtoDifficulty(difficulty repository.Difficulty) proto.Difficulty {
+func convertToProtoDifficulty(difficulty domain.Difficulty) proto.Difficulty {
 	switch difficulty {
-	case repository.DifficultyBeginner:
+	case domain.DifficultyBeginner:
 		return proto.Difficulty_DIFFICULTY_BEGINNER
-	case repository.DifficultyIntermediate:
+	case domain.DifficultyIntermediate:
 		return proto.Difficulty_DIFFICULTY_INTERMEDIATE
-	case repository.DifficultyAdvanced:
+	case domain.DifficultyAdvanced:
 		return proto.Difficulty_DIFFICULTY_ADVANCED
-	case repository.DifficultyBeast:
+	case domain.DifficultyBeast:
 		return proto.Difficulty_DIFFICULTY_BEAST
 	default:
 		return proto.Difficulty_DIFFICULTY_UNSPECIFIED
 	}
 }
 
-func convertToProtoMuscleGroup(muscleGroup repository.MuscleGroup) proto.MuscleGroup {
+func convertToProtoMuscleGroup(muscleGroup domain.MuscleGroup) proto.MuscleGroup {
 	switch muscleGroup {
-	case repository.Chest:
+	case domain.Chest:
 		return proto.MuscleGroup_CHEST
-	case repository.Back:
+	case domain.Back:
 		return proto.MuscleGroup_BACK
-	case repository.Legs:
+	case domain.Legs:
 		return proto.MuscleGroup_LEGS
-	case repository.Shoulders:
+	case domain.Shoulders:
 		return proto.MuscleGroup_SHOULDERS
-	case repository.Arms:
+	case domain.Arms:
 		return proto.MuscleGroup_ARMS
-	case repository.Abs:
+	case domain.Abs:
 		return proto.MuscleGroup_ABS
-	case repository.Core:
+	case domain.Core:
 		return proto.MuscleGroup_CORE
-	case repository.Glutes:
+	case domain.Glutes:
 		return proto.MuscleGroup_GLUTES
-	case repository.Cardio:
+	case domain.Cardio:
 		return proto.MuscleGroup_CARDIO
-	case repository.FullBody:
+	case domain.FullBody:
 		return proto.MuscleGroup_FULL_BODY
 	default:
 		return proto.MuscleGroup_UNSPECIFIED
 	}
 }
 
-func convertProtoDifficulty(difficulty proto.Difficulty) repository.Difficulty {
+func convertProtoDifficulty(difficulty proto.Difficulty) domain.Difficulty {
 	switch difficulty {
 	case proto.Difficulty_DIFFICULTY_BEGINNER:
-		return repository.DifficultyBeginner
+		return domain.DifficultyBeginner
 	case proto.Difficulty_DIFFICULTY_INTERMEDIATE:
-		return repository.DifficultyIntermediate
+		return domain.DifficultyIntermediate
 	case proto.Difficulty_DIFFICULTY_ADVANCED:
-		return repository.DifficultyAdvanced
+		return domain.DifficultyAdvanced
 	case proto.Difficulty_DIFFICULTY_BEAST:
-		return repository.DifficultyBeast
+		return domain.DifficultyBeast
 	default:
-		return repository.DifficultyBeginner
+		return domain.DifficultyBeginner
 	}
 }
 
-func convertProtoMuscleGroup(muscleGroup proto.MuscleGroup) repository.MuscleGroup {
+func convertProtoMuscleGroup(muscleGroup proto.MuscleGroup) domain.MuscleGroup {
 	switch muscleGroup {
 	case proto.MuscleGroup_CHEST:
-		return repository.Chest
+		return domain.Chest
 	case proto.MuscleGroup_BACK:
-		return repository.Back
+		return domain.Back
 	case proto.MuscleGroup_LEGS:
-		return repository.Legs
+		return domain.Legs
 	case proto.MuscleGroup_SHOULDERS:
-		return repository.Shoulders
+		return domain.Shoulders
 	case proto.MuscleGroup_ARMS:
-		return repository.Arms
+		return domain.Arms
 	case proto.MuscleGroup_ABS:
-		return repository.Abs
+		return domain.Abs
 	case proto.MuscleGroup_CORE:
-		return repository.Core
+		return domain.Core
 	case proto.MuscleGroup_GLUTES:
-		return repository.Glutes
+		return domain.Glutes
 	case proto.MuscleGroup_CARDIO:
-		return repository.Cardio
+		return domain.Cardio
 	case proto.MuscleGroup_FULL_BODY:
-		return repository.FullBody
+		return domain.FullBody
 	default:
-		return repository.Unspecified
+		return domain.Unspecified
+	}
+}
+
+// ExerciseType変換関数（domain → proto）
+func convertToProtoExerciseType(exerciseType domain.ExerciseType) proto.ExerciseType {
+	switch exerciseType {
+	case domain.BenchPress:
+		return proto.ExerciseType_EXERCISE_BENCH_PRESS
+	case domain.Squat:
+		return proto.ExerciseType_EXERCISE_SQUAT
+	case domain.Deadlift:
+		return proto.ExerciseType_EXERCISE_DEADLIFT
+	case domain.DumbbellShoulder:
+		return proto.ExerciseType_EXERCISE_DUMBBELL_SHOULDER
+	case domain.PullUp:
+		return proto.ExerciseType_EXERCISE_PULL_UP
+	case domain.SideRaise:
+		return proto.ExerciseType_EXERCISE_SIDE_RAISE
+	case domain.OneHandRow:
+		return proto.ExerciseType_EXERCISE_ONE_HAND_ROW
+	case domain.HighPull:
+		return proto.ExerciseType_EXERCISE_HIGH_PULL
+	default:
+		return proto.ExerciseType_EXERCISE_UNSPECIFIED
+	}
+}
+
+// ExerciseType変換関数（proto → domain）
+func convertProtoExerciseType(exerciseType proto.ExerciseType) domain.ExerciseType {
+	switch exerciseType {
+	case proto.ExerciseType_EXERCISE_BENCH_PRESS:
+		return domain.BenchPress
+	case proto.ExerciseType_EXERCISE_SQUAT:
+		return domain.Squat
+	case proto.ExerciseType_EXERCISE_DEADLIFT:
+		return domain.Deadlift
+	case proto.ExerciseType_EXERCISE_DUMBBELL_SHOULDER:
+		return domain.DumbbellShoulder
+	case proto.ExerciseType_EXERCISE_PULL_UP:
+		return domain.PullUp
+	case proto.ExerciseType_EXERCISE_SIDE_RAISE:
+		return domain.SideRaise
+	case proto.ExerciseType_EXERCISE_ONE_HAND_ROW:
+		return domain.OneHandRow
+	case proto.ExerciseType_EXERCISE_HIGH_PULL:
+		return domain.HighPull
+	default:
+		return domain.ExerciseUnspecified
 	}
 }
