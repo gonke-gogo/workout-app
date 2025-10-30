@@ -19,29 +19,29 @@ type WorkoutManager struct {
 // 全てのパラメータを1つの構造体にまとめることで、
 // プレゼンテーション層からユースケース層への変換がシンプルになる
 type CreateWorkoutRequest struct {
-	ExerciseType domain.ExerciseType // 必須: ワークアウトの種目
-	Description  string              // オプション
-	Difficulty   domain.Difficulty   // オプション
-	MuscleGroup  domain.MuscleGroup  // オプション
-	Sets         int32               // オプション
-	Reps         int32               // オプション
-	Weight       float64             // オプション
-	Notes        string              // オプション
+	ExerciseType domain.ExerciseType
+	Description  string
+	Difficulty   domain.Difficulty
+	MuscleGroup  domain.MuscleGroup
+	Sets         int32
+	Reps         int32
+	Weight       float64
+	Notes        string
 }
 
 // UpdateWorkoutRequest ワークアウト更新リクエスト
-// CreateWorkoutRequestと同様に、全パラメータを構造体にまとめて可読性を向上
+// ポインタ型を使用して「更新しない」と「明示的な値」を区別
 type UpdateWorkoutRequest struct {
-	ID           domain.WorkoutID     // 必須: 更新対象のID
-	ExerciseType domain.ExerciseType  // 必須: ワークアウトの種目
-	Description  string               // オプション
-	Difficulty   domain.Difficulty    // オプション
-	MuscleGroup  domain.MuscleGroup   // オプション
-	Status       domain.WorkoutStatus // オプション
-	Sets         int                  // オプション
-	Reps         int                  // オプション
-	Weight       float64              // オプション
-	Notes        string               // オプション
+	ID           domain.WorkoutID      // 必須: 更新対象のID
+	ExerciseType domain.ExerciseType   // 必須: ワークアウトの種目
+	Description  *string               // オプション: nilなら更新しない
+	Difficulty   *domain.Difficulty    // オプション: nilなら更新しない
+	MuscleGroup  *domain.MuscleGroup   // オプション: nilなら更新しない
+	Status       *domain.WorkoutStatus // オプション: nilなら更新しない
+	Sets         *int                  // オプション: nilなら更新しない
+	Reps         *int                  // オプション: nilなら更新しない
+	Weight       *float64              // オプション: nilなら更新しない
+	Notes        *string               // オプション: nilなら更新しない
 }
 
 // ファクトリー関数
@@ -92,7 +92,6 @@ func (wm *WorkoutManager) CreateWorkout(req CreateWorkoutRequest) (*domain.Worko
 		UpdatedAt:    time.Now(),
 	}
 
-	// ビジネスロジック: リクエストの値を適用（0値でない場合のみ）
 	if req.Description != "" {
 		workout.Description = req.Description
 	}
@@ -108,7 +107,7 @@ func (wm *WorkoutManager) CreateWorkout(req CreateWorkoutRequest) (*domain.Worko
 	if req.Reps > 0 {
 		workout.Reps = int(req.Reps)
 	}
-	if req.Weight >= 0 {
+	if req.Weight > 0 {
 		workout.Weight = req.Weight
 	}
 	if req.Notes != "" {
@@ -240,20 +239,36 @@ func (wm *WorkoutManager) UpdateWorkout(req UpdateWorkoutRequest) error {
 		return workoutErr
 	}
 
-	// ビジネスロジック: 値の更新
+	// ビジネスロジック: 値の更新（nilでないフィールドのみ）
 	workout.ExerciseType = req.ExerciseType
-	workout.Description = req.Description
-	workout.Status = req.Status
-	workout.Difficulty = req.Difficulty
-	workout.MuscleGroup = req.MuscleGroup
-	workout.Sets = req.Sets
-	workout.Reps = req.Reps
-	workout.Weight = req.Weight
-	workout.Notes = req.Notes
-	workout.UpdatedAt = time.Now()
 
-	// ビジネスロジック: ステータス変更時の処理
-	wm.handleStatusChange(workout, req.Status, req.ExerciseType)
+	if req.Description != nil {
+		workout.Description = *req.Description
+	}
+	if req.Status != nil {
+		workout.Status = *req.Status
+		// ビジネスロジック: ステータス変更時の処理
+		wm.handleStatusChange(workout, *req.Status, req.ExerciseType)
+	}
+	if req.Difficulty != nil {
+		workout.Difficulty = *req.Difficulty
+	}
+	if req.MuscleGroup != nil {
+		workout.MuscleGroup = *req.MuscleGroup
+	}
+	if req.Sets != nil {
+		workout.Sets = *req.Sets
+	}
+	if req.Reps != nil {
+		workout.Reps = *req.Reps
+	}
+	if req.Weight != nil {
+		workout.Weight = *req.Weight
+	}
+	if req.Notes != nil {
+		workout.Notes = *req.Notes
+	}
+	workout.UpdatedAt = time.Now()
 
 	err = wm.repo.UpdateWorkout(workout)
 	if err != nil {
@@ -272,21 +287,21 @@ func (wm *WorkoutManager) UpdateWorkout(req UpdateWorkoutRequest) error {
 }
 
 // validateUpdateInput 更新時の入力値バリデーション
-func (wm *WorkoutManager) validateUpdateInput(id domain.WorkoutID, exerciseType domain.ExerciseType, sets, reps int, weight float64) error {
+func (wm *WorkoutManager) validateUpdateInput(id domain.WorkoutID, exerciseType domain.ExerciseType, sets, reps *int, weight *float64) error {
 	if id <= 0 {
 		return fmt.Errorf("invalid workout ID: %d", id)
 	}
 	if exerciseType == domain.ExerciseUnspecified {
 		return fmt.Errorf("exercise type must be specified")
 	}
-	if sets < 0 {
-		return fmt.Errorf("sets cannot be negative: %d", sets)
+	if sets != nil && *sets < 0 {
+		return fmt.Errorf("sets cannot be negative: %d", *sets)
 	}
-	if reps < 0 {
-		return fmt.Errorf("reps cannot be negative: %d", reps)
+	if reps != nil && *reps < 0 {
+		return fmt.Errorf("reps cannot be negative: %d", *reps)
 	}
-	if weight < 0 {
-		return fmt.Errorf("weight cannot be negative: %.2f", weight)
+	if weight != nil && *weight < 0 {
+		return fmt.Errorf("weight cannot be negative: %.2f", *weight)
 	}
 	return nil
 }

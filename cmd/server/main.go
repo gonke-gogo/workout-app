@@ -7,10 +7,13 @@ import (
 	"strconv"
 	"time"
 
-	"golv2-learning-app/domain"
 	"golv2-learning-app/repository"
 	"golv2-learning-app/server"
 	"golv2-learning-app/usecase"
+
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 // getEnv 環境変数を取得（必須）
@@ -68,13 +71,19 @@ func main() {
 	log.Printf("🏋️ Database connection info: Host=%s, Port=%d, Database=%s, User=%s",
 		dbHost, dbPort, dbName, dbUser)
 
-	var repo domain.WorkoutRepository
+	// GORM設定（SQL実行ログを表示）
+	config := &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	}
+
+	// DB接続のリトライ処理
+	var db *gorm.DB
 	maxRetries := 30
 	retryDelay := 2 * time.Second
 
 	for i := 0; i < maxRetries; i++ {
 		log.Printf("💪 MySQLにGORMで接続中... (試行 %d/%d)", i+1, maxRetries)
-		repo, err = repository.NewGORMRepository(dsn)
+		db, err = gorm.Open(mysql.Open(dsn), config)
 		if err == nil {
 			break
 		}
@@ -86,11 +95,14 @@ func main() {
 	}
 
 	if err != nil {
-		log.Fatalf("%d回の試行後もMySQLリポジトリの作成に失敗: %v", maxRetries, err)
+		log.Fatalf("%d回の試行後もMySQL接続に失敗: %v", maxRetries, err)
 	}
-	defer repo.Close()
 
 	log.Printf("✅ MySQLデータベースに接続しました: %s:%d/%s", dbHost, dbPort, dbName)
+
+	// リポジトリを作成（接続済みのDBを注入）
+	repo := repository.NewGORMRepository(db)
+	defer repo.Close()
 
 	// ワークアウトマネージャーを作成（MySQLリポジトリを使用）
 	workoutManager := usecase.NewWorkoutManagerWithRepository(repo)

@@ -7,9 +7,7 @@ import (
 
 	"golv2-learning-app/domain"
 
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 )
 
 // GORMRepository GORMを使用したリポジトリ実装
@@ -17,50 +15,9 @@ type GORMRepository struct {
 	db *gorm.DB
 }
 
-// NewGORMRepository 新しいGORMリポジトリを作成
-func NewGORMRepository(dsn string) (*GORMRepository, error) {
-	// パフォーマンス最適化設定
-	config := &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
-		// PrepareStmt: true, // プリペアドステートメントでパフォーマンス向上
-	}
-
-	// MySQL設定でUTF-8を明示的に指定
-	mysqlConfig := mysql.Config{
-		DSN:                       dsn,
-		DefaultStringSize:         256,   // string型のデフォルトサイズ
-		DisableDatetimePrecision:  true,  // datetime精度を無効化
-		DontSupportRenameIndex:    true,  // インデックスリネームをサポートしない
-		DontSupportRenameColumn:   true,  // カラムリネームをサポートしない
-		SkipInitializeWithVersion: false, // バージョン初期化をスキップしない
-	}
-
-	db, err := gorm.Open(mysql.New(mysqlConfig), config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
-	}
-
-	// UTF-8設定を明示的に実行
-	db.Exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci")
-	db.Exec("SET CHARACTER SET utf8mb4")
-
-	// 接続プール設定（パフォーマンス最適化）
-	sqlDB, err := db.DB()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
-	}
-
-	// 接続プールの最適化
-	sqlDB.SetMaxOpenConns(25)                 // 最大接続数
-	sqlDB.SetMaxIdleConns(25)                 // アイドル接続数
-	sqlDB.SetConnMaxLifetime(5 * time.Minute) // 接続の最大生存時間
-
-	// マイグレーション実行
-	if err := db.AutoMigrate(&domain.Workout{}); err != nil {
-		return nil, fmt.Errorf("failed to migrate database: %w", err)
-	}
-
-	return &GORMRepository{db: db}, nil
+// NewGORMRepository 接続済みのGORM DBインスタンスからリポジトリを作成
+func NewGORMRepository(db *gorm.DB) *GORMRepository {
+	return &GORMRepository{db: db}
 }
 
 // CreateWorkout ワークアウトを作成
