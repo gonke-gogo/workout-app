@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # MySQLデータベース
+  mysql:
+    image: mysql:8.0
+    container_name: workout-mysql-dev
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: workoutdb
+      MYSQL_USER: workoutuser
+      MYSQL_PASSWORD: workoutpass
+      MYSQL_ROOT_HOST: '%'
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-authentication-plugin=mysql_native_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data_dev:/var/lib/mysql
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - workout-network-dev
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      timeout: 30s
+      retries: 15
+      start_period: 60s
+
+  # gRPCアプリケーション（開発用：ホットリロード対応）
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: workout-app-dev
+    ports:
+      - "50051:50051"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=workoutdb
+      - DB_USER=workoutuser
+      - DB_PASSWORD=workoutpass
+    volumes:
+      # ソースコードをマウント（ホットリロード用）
+      - .:/app
+      # Go modulesのキャッシュを永続化
+      - go-modules:/go/pkg/mod
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - workout-network-dev
+    restart: unless-stopped
+
+volumes:
+  mysql_data_dev:
+  go-modules:
+
+networks:
+  workout-network-dev:
+    driver: bridge
+

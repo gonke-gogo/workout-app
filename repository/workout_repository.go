@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"golv2-learning-app/domain"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -54,7 +56,7 @@ func NewGORMRepository(dsn string) (*GORMRepository, error) {
 	sqlDB.SetConnMaxLifetime(5 * time.Minute) // 接続の最大生存時間
 
 	// マイグレーション実行
-	if err := db.AutoMigrate(&Workout{}); err != nil {
+	if err := db.AutoMigrate(&domain.Workout{}); err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)
 	}
 
@@ -62,7 +64,7 @@ func NewGORMRepository(dsn string) (*GORMRepository, error) {
 }
 
 // CreateWorkout ワークアウトを作成
-func (r *GORMRepository) CreateWorkout(workout *Workout) error {
+func (r *GORMRepository) CreateWorkout(workout *domain.Workout) error {
 	if err := r.db.Create(workout).Error; err != nil {
 		return fmt.Errorf("failed to create workout: %w", err)
 	}
@@ -70,8 +72,8 @@ func (r *GORMRepository) CreateWorkout(workout *Workout) error {
 }
 
 // GetWorkoutByID ワークアウトをIDで取得
-func (r *GORMRepository) GetWorkoutByID(id WorkoutID) (*Workout, error) {
-	var workout Workout
+func (r *GORMRepository) GetWorkoutByID(id domain.WorkoutID) (*domain.Workout, error) {
+	var workout domain.Workout
 	if err := r.db.First(&workout, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("workout not found: %w", err)
@@ -83,7 +85,7 @@ func (r *GORMRepository) GetWorkoutByID(id WorkoutID) (*Workout, error) {
 }
 
 // UpdateWorkout ワークアウトを更新
-func (r *GORMRepository) UpdateWorkout(workout *Workout) error {
+func (r *GORMRepository) UpdateWorkout(workout *domain.Workout) error {
 	workout.UpdatedAt = time.Now()
 	if err := r.db.Save(workout).Error; err != nil {
 		return fmt.Errorf("failed to update workout: %w", err)
@@ -92,15 +94,15 @@ func (r *GORMRepository) UpdateWorkout(workout *Workout) error {
 }
 
 // DeleteWorkout ワークアウトを削除
-func (r *GORMRepository) DeleteWorkout(id WorkoutID) error {
-	if err := r.db.Delete(&Workout{}, id).Error; err != nil {
+func (r *GORMRepository) DeleteWorkout(id domain.WorkoutID) error {
+	if err := r.db.Delete(&domain.Workout{}, id).Error; err != nil {
 		return fmt.Errorf("failed to delete workout: %w", err)
 	}
 	return nil
 }
 
-// ListWorkouts ワークアウト一覧を取得（Go基礎技術による最適化版）
-func (r *GORMRepository) ListWorkouts(statusFilter *int, difficultyFilter *int, muscleGroupFilter *int) ([]*Workout, error) {
+// ListWorkouts ワークアウト一覧を取得
+func (r *GORMRepository) ListWorkouts(statusFilter *int, difficultyFilter *int, muscleGroupFilter *int) ([]*domain.Workout, error) {
 	start := time.Now()
 	defer func() {
 		duration := time.Since(start)
@@ -108,12 +110,10 @@ func (r *GORMRepository) ListWorkouts(statusFilter *int, difficultyFilter *int, 
 	}()
 
 	// ここを変えて性能評価
-	workouts := make([]*Workout, 0, 100)
+	workouts := make([]*domain.Workout, 0, 100)
 
-	query := r.db.Model(&Workout{})
+	query := r.db.Model(&domain.Workout{})
 
-	// インデックスを効率的に使用するクエリ構築
-	// 複合インデックスの左端カラムを優先
 	if statusFilter != nil && difficultyFilter != nil {
 		// idx_workouts_status_difficulty を使用
 		query = query.Where("status = ? AND difficulty = ?", *statusFilter, *difficultyFilter)
@@ -133,7 +133,6 @@ func (r *GORMRepository) ListWorkouts(statusFilter *int, difficultyFilter *int, 
 		}
 	}
 
-	// ORDER BYにインデックスを使用
 	if err := query.Order("created_at DESC").Find(&workouts).Error; err != nil {
 		return nil, fmt.Errorf("failed to list workouts: %w", err)
 	}
@@ -143,12 +142,11 @@ func (r *GORMRepository) ListWorkouts(statusFilter *int, difficultyFilter *int, 
 }
 
 // BuildWorkoutSummary Go基礎技術による効率的な文字列構築
-func (r *GORMRepository) BuildWorkoutSummary(workouts []*Workout) string {
+func (r *GORMRepository) BuildWorkoutSummary(workouts []*domain.Workout) string {
 	if len(workouts) == 0 {
 		return "ワークアウトなし"
 	}
 
-	// Go基礎技術2: strings.Builder + 事前容量確保
 	var builder strings.Builder
 	// 概算容量を計算（各ワークアウト名 + フォーマット文字列）
 	estimatedSize := len(workouts) * 30 // 平均30文字と仮定
@@ -161,7 +159,7 @@ func (r *GORMRepository) BuildWorkoutSummary(workouts []*Workout) string {
 			builder.WriteString("\n")
 		}
 		builder.WriteString(fmt.Sprintf("  %d. %s (%s) - %dセット×%d回",
-			i+1, workout.Name, workout.MuscleGroup, workout.Sets, workout.Reps))
+			i+1, workout.ExerciseType.Japanese(), workout.MuscleGroup.Japanese(), workout.Sets, workout.Reps))
 
 		if workout.Weight > 0 {
 			builder.WriteString(fmt.Sprintf(" @ %.1fkg", workout.Weight))
@@ -171,16 +169,14 @@ func (r *GORMRepository) BuildWorkoutSummary(workouts []*Workout) string {
 	return builder.String()
 }
 
-// FilterWorkoutsByStatus Go基礎技術による効率的なフィルタリング
-func (r *GORMRepository) FilterWorkoutsByStatus(workouts []*Workout, targetStatus WorkoutStatus) []*Workout {
-	// Go基礎技術3: append最適化 - 事前容量確保
-	// 結果サイズを推定（全体の約1/3がマッチすると仮定）
+func (r *GORMRepository) FilterWorkoutsByStatus(workouts []*domain.Workout, targetStatus domain.WorkoutStatus) []*domain.Workout {
+
 	estimatedSize := len(workouts) / 3
 	if estimatedSize < 10 {
 		estimatedSize = 10 // 最小容量
 	}
 
-	filtered := make([]*Workout, 0, estimatedSize)
+	filtered := make([]*domain.Workout, 0, estimatedSize)
 
 	for _, workout := range workouts {
 		if workout.Status == targetStatus {
@@ -192,7 +188,7 @@ func (r *GORMRepository) FilterWorkoutsByStatus(workouts []*Workout, targetStatu
 }
 
 // BatchCreateWorkouts Go基礎技術によるバッチ作成
-func (r *GORMRepository) BatchCreateWorkouts(workouts []*Workout, batchSize int) error {
+func (r *GORMRepository) BatchCreateWorkouts(workouts []*domain.Workout, batchSize int) error {
 	if len(workouts) == 0 {
 		return nil
 	}
@@ -211,7 +207,7 @@ func (r *GORMRepository) BatchCreateWorkouts(workouts []*Workout, batchSize int)
 		}
 
 		// バッチスライスを作成（容量最適化）
-		batch := make([]*Workout, 0, end-i)
+		batch := make([]*domain.Workout, 0, end-i)
 		batch = append(batch, workouts[i:end]...)
 
 		// トランザクション内でバッチ処理
@@ -226,7 +222,7 @@ func (r *GORMRepository) BatchCreateWorkouts(workouts []*Workout, batchSize int)
 // GetWorkoutCount ワークアウト数を取得
 func (r *GORMRepository) GetWorkoutCount() (int, error) {
 	var count int64
-	if err := r.db.Model(&Workout{}).Count(&count).Error; err != nil {
+	if err := r.db.Model(&domain.Workout{}).Count(&count).Error; err != nil {
 		return 0, fmt.Errorf("failed to get workout count: %w", err)
 	}
 	return int(count), nil
@@ -251,28 +247,28 @@ func (r *GORMRepository) GetWorkoutStats(period string) (map[string]interface{},
 
 	// 総ワークアウト数
 	var totalCount int64
-	if err := r.db.Model(&Workout{}).Where("created_at >= ?", timeFilter).Count(&totalCount).Error; err != nil {
+	if err := r.db.Model(&domain.Workout{}).Where("created_at >= ?", timeFilter).Count(&totalCount).Error; err != nil {
 		return nil, fmt.Errorf("failed to get total workout count: %w", err)
 	}
 	stats["total_workouts"] = int(totalCount)
 
 	// 完了したワークアウト数
 	var completedCount int64
-	if err := r.db.Model(&Workout{}).Where("status = ? AND created_at >= ?", WorkoutStatusCompleted, timeFilter).Count(&completedCount).Error; err != nil {
+	if err := r.db.Model(&domain.Workout{}).Where("status = ? AND created_at >= ?", domain.WorkoutStatusCompleted, timeFilter).Count(&completedCount).Error; err != nil {
 		return nil, fmt.Errorf("failed to get completed workout count: %w", err)
 	}
 	stats["completed_workouts"] = int(completedCount)
 
 	// スキップしたワークアウト数
 	var skippedCount int64
-	if err := r.db.Model(&Workout{}).Where("status = ? AND created_at >= ?", WorkoutStatusSkipped, timeFilter).Count(&skippedCount).Error; err != nil {
+	if err := r.db.Model(&domain.Workout{}).Where("status = ? AND created_at >= ?", domain.WorkoutStatusSkipped, timeFilter).Count(&skippedCount).Error; err != nil {
 		return nil, fmt.Errorf("failed to get skipped workout count: %w", err)
 	}
 	stats["skipped_workouts"] = int(skippedCount)
 
 	// 総重量
 	var totalWeight float64
-	if err := r.db.Model(&Workout{}).Where("status = ? AND created_at >= ?", WorkoutStatusCompleted, timeFilter).Select("SUM(weight * sets * reps)").Scan(&totalWeight).Error; err != nil {
+	if err := r.db.Model(&domain.Workout{}).Where("status = ? AND created_at >= ?", domain.WorkoutStatusCompleted, timeFilter).Select("SUM(weight * sets * reps)").Scan(&totalWeight).Error; err != nil {
 		return nil, fmt.Errorf("failed to get total weight: %w", err)
 	}
 	stats["total_weight_lifted"] = totalWeight
@@ -282,7 +278,7 @@ func (r *GORMRepository) GetWorkoutStats(period string) (map[string]interface{},
 		MuscleGroup string `json:"muscle_group"`
 		Count       int    `json:"count"`
 	}
-	if err := r.db.Model(&Workout{}).Where("created_at >= ?", timeFilter).Select("muscle_group, COUNT(*) as count").Group("muscle_group").Scan(&muscleGroupStats).Error; err != nil {
+	if err := r.db.Model(&domain.Workout{}).Where("created_at >= ?", timeFilter).Select("muscle_group, COUNT(*) as count").Group("muscle_group").Scan(&muscleGroupStats).Error; err != nil {
 		return nil, fmt.Errorf("failed to get muscle group stats: %w", err)
 	}
 

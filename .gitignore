@@ -36,6 +36,7 @@ Thumbs.db
 # Application specific
 workout-server
 *.log
+build-errors.log
 
 # Docker volumes
 mysql_data/
