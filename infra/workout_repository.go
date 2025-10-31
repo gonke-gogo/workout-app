@@ -2,7 +2,6 @@ package repository
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"golv2-learning-app/domain"
@@ -28,8 +27,8 @@ func (r *GORMRepository) CreateWorkout(workout *domain.Workout) error {
 	return nil
 }
 
-// GetWorkoutByID ワークアウトをIDで取得
-func (r *GORMRepository) GetWorkoutByID(id domain.WorkoutID) (*domain.Workout, error) {
+// GetWorkout ワークアウトをIDで取得
+func (r *GORMRepository) GetWorkout(id domain.WorkoutID) (*domain.Workout, error) {
 	var workout domain.Workout
 	if err := r.db.First(&workout, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -96,84 +95,6 @@ func (r *GORMRepository) ListWorkouts(statusFilter *int, difficultyFilter *int, 
 
 	fmt.Printf("🎯 取得件数: %d件\n", len(workouts))
 	return workouts, nil
-}
-
-// BuildWorkoutSummary Go基礎技術による効率的な文字列構築
-func (r *GORMRepository) BuildWorkoutSummary(workouts []*domain.Workout) string {
-	if len(workouts) == 0 {
-		return "ワークアウトなし"
-	}
-
-	var builder strings.Builder
-	// 概算容量を計算（各ワークアウト名 + フォーマット文字列）
-	estimatedSize := len(workouts) * 30 // 平均30文字と仮定
-	builder.Grow(estimatedSize)
-
-	builder.WriteString("📋 ワークアウト一覧:\n")
-
-	for i, workout := range workouts {
-		if i > 0 {
-			builder.WriteString("\n")
-		}
-		builder.WriteString(fmt.Sprintf("  %d. %s (%s) - %dセット×%d回",
-			i+1, workout.ExerciseType.Japanese(), workout.MuscleGroup.Japanese(), workout.Sets, workout.Reps))
-
-		if workout.Weight > 0 {
-			builder.WriteString(fmt.Sprintf(" @ %.1fkg", workout.Weight))
-		}
-	}
-
-	return builder.String()
-}
-
-func (r *GORMRepository) FilterWorkoutsByStatus(workouts []*domain.Workout, targetStatus domain.WorkoutStatus) []*domain.Workout {
-
-	estimatedSize := len(workouts) / 3
-	if estimatedSize < 10 {
-		estimatedSize = 10 // 最小容量
-	}
-
-	filtered := make([]*domain.Workout, 0, estimatedSize)
-
-	for _, workout := range workouts {
-		if workout.Status == targetStatus {
-			filtered = append(filtered, workout)
-		}
-	}
-
-	return filtered
-}
-
-// BatchCreateWorkouts Go基礎技術によるバッチ作成
-func (r *GORMRepository) BatchCreateWorkouts(workouts []*domain.Workout, batchSize int) error {
-	if len(workouts) == 0 {
-		return nil
-	}
-
-	start := time.Now()
-	defer func() {
-		duration := time.Since(start)
-		fmt.Printf("📦 BatchCreateWorkouts実行時間: %v (%d件)\n", duration, len(workouts))
-	}()
-
-	// Go基礎技術: 効率的なバッチ処理
-	for i := 0; i < len(workouts); i += batchSize {
-		end := i + batchSize
-		if end > len(workouts) {
-			end = len(workouts)
-		}
-
-		// バッチスライスを作成（容量最適化）
-		batch := make([]*domain.Workout, 0, end-i)
-		batch = append(batch, workouts[i:end]...)
-
-		// トランザクション内でバッチ処理
-		if err := r.db.Create(&batch).Error; err != nil {
-			return fmt.Errorf("batch create failed at index %d: %w", i, err)
-		}
-	}
-
-	return nil
 }
 
 // GetWorkoutCount ワークアウト数を取得
@@ -246,13 +167,4 @@ func (r *GORMRepository) GetWorkoutStats(period string) (map[string]interface{},
 	stats["muscle_group_stats"] = muscleGroupMap
 
 	return stats, nil
-}
-
-// Close リソースを解放
-func (r *GORMRepository) Close() error {
-	sqlDB, err := r.db.DB()
-	if err != nil {
-		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
-	}
-	return sqlDB.Close()
 }

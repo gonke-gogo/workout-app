@@ -1,4 +1,4 @@
-package usecase
+package repository
 
 import (
 	"fmt"
@@ -28,8 +28,8 @@ func (m *MockWorkoutRepository) CreateWorkout(workout *domain.Workout) error {
 	return nil
 }
 
-// GetWorkoutByID ワークアウトをIDで取得
-func (m *MockWorkoutRepository) GetWorkoutByID(id domain.WorkoutID) (*domain.Workout, error) {
+// GetWorkout ワークアウトをIDで取得
+func (m *MockWorkoutRepository) GetWorkout(id domain.WorkoutID) (*domain.Workout, error) {
 	workout, exists := m.workouts[id]
 	if !exists {
 		return nil, fmt.Errorf("workout not found: id=%d", id)
@@ -77,29 +77,4 @@ func (m *MockWorkoutRepository) ListWorkouts(statusFilter *int, difficultyFilter
 // GetWorkoutCount ワークアウト数を取得
 func (m *MockWorkoutRepository) GetWorkoutCount() (int, error) {
 	return len(m.workouts), nil
-}
-
-// GetWorkoutStats ワークアウト統計を取得（モック用簡易実装）
-func (m *MockWorkoutRepository) GetWorkoutStats(period string) (map[string]interface{}, error) {
-	stats := make(map[string]interface{})
-	stats["total_workouts"] = len(m.workouts)
-	stats["completed_workouts"] = 0
-	stats["skipped_workouts"] = 0
-	stats["total_weight_lifted"] = 0.0
-
-	for _, workout := range m.workouts {
-		if workout.Status == domain.WorkoutStatusCompleted {
-			stats["completed_workouts"] = stats["completed_workouts"].(int) + 1
-		}
-		if workout.Status == domain.WorkoutStatusSkipped {
-			stats["skipped_workouts"] = stats["skipped_workouts"].(int) + 1
-		}
-	}
-
-	return stats, nil
-}
-
-// Close リソースを解放（モックなので何もしない）
-func (m *MockWorkoutRepository) Close() error {
-	return nil
 }

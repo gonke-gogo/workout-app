@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"golv2-learning-app/repository"
+	repository "golv2-learning-app/infra"
 	"golv2-learning-app/server"
 	"golv2-learning-app/usecase"
 
@@ -102,7 +102,6 @@ func main() {
 
 	// リポジトリを作成（接続済みのDBを注入）
 	repo := repository.NewGORMRepository(db)
-	defer repo.Close()
 
 	// ワークアウトマネージャーを作成（MySQLリポジトリを使用）
 	workoutManager := usecase.NewWorkoutManagerWithRepository(repo)

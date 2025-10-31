@@ -164,7 +164,7 @@ func (wm *WorkoutManager) logWorkoutCreated(workout *domain.Workout) {
 		domain.DifficultyBeginner:     "初心者",
 		domain.DifficultyIntermediate: "中級者",
 		domain.DifficultyAdvanced:     "上級者",
-		domain.DifficultyBeast:        "野獣級",
+		domain.DifficultyBeast:        "お前は化け物だ、キモいです、すごいです",
 	}
 
 	fmt.Printf("💪 新しいワークアウト「%s」を作成しました！難易度: %s\n", workout.ExerciseType.Japanese(), difficultyNames[workout.Difficulty])
@@ -186,7 +186,7 @@ func (wm *WorkoutManager) GetWorkout(id domain.WorkoutID) (*domain.Workout, erro
 		return nil, workoutErr
 	}
 
-	workout, err := wm.repo.GetWorkoutByID(id)
+	workout, err := wm.repo.GetWorkout(id)
 	if err != nil {
 		workoutErr := &appErrors.WorkoutError{
 			Op:      "GetWorkout",
@@ -227,7 +227,7 @@ func (wm *WorkoutManager) UpdateWorkout(req UpdateWorkoutRequest) error {
 	}
 
 	// 既存のワークアウトを取得
-	workout, err := wm.repo.GetWorkoutByID(req.ID)
+	workout, err := wm.repo.GetWorkout(req.ID)
 	if err != nil {
 		workoutErr := &appErrors.WorkoutError{
 			Op:           "UpdateWorkout",
@@ -335,7 +335,7 @@ func (wm *WorkoutManager) DeleteWorkout(id domain.WorkoutID) error {
 	}
 
 	// ビジネスロジック: 削除前に存在確認
-	workout, err := wm.repo.GetWorkoutByID(id)
+	workout, err := wm.repo.GetWorkout(id)
 	if err != nil {
 		workoutErr := &appErrors.WorkoutError{
 			Op:      "DeleteWorkout",
@@ -464,11 +464,6 @@ func (wm *WorkoutManager) buildHighIntensityLogMessage(totalCount, filteredCount
 // GetWorkoutCount ワークアウト数を取得
 func (wm *WorkoutManager) GetWorkoutCount() (int, error) {
 	return wm.repo.GetWorkoutCount()
-}
-
-// GetWorkoutStats ワークアウト統計を取得
-func (wm *WorkoutManager) GetWorkoutStats(period string) (map[string]interface{}, error) {
-	return wm.repo.GetWorkoutStats(period)
 }
 
 // 後方互換性のためのエイリアス

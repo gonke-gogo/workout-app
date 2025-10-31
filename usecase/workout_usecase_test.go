@@ -2,12 +2,13 @@ package usecase
 
 import (
 	"golv2-learning-app/domain"
+	repository "golv2-learning-app/infra"
 	"testing"
 )
 
-// TestCreateWorkout_WithMock_TableDriven テーブル駆動テストでワークアウト作成をテスト
+// TestCreateWorkout テーブル駆動テストでワークアウト作成をテスト
 // モックリポジトリを使用して、DBなしでビジネスロジックをテスト
-func TestCreateWorkout_WithMock_TableDriven(t *testing.T) {
+func TestCreateWorkout(t *testing.T) {
 	tests := []struct {
 		name        string
 		request     CreateWorkoutRequest
@@ -96,8 +97,8 @@ func TestCreateWorkout_WithMock_TableDriven(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// モックリポジトリを作成（各テストケースで独立）
-			mockRepo := NewMockWorkoutRepository()
+			// モックリポジトリを作成
+			mockRepo := repository.NewMockWorkoutRepository()
 			manager := NewWorkoutManagerWithRepository(mockRepo)
 
 			// テスト実行
@@ -138,8 +139,8 @@ func TestCreateWorkout_WithMock_TableDriven(t *testing.T) {
 	}
 }
 
-// TestUpdateWorkout_WithMock_TableDriven テーブル駆動テストでワークアウト更新をテスト
-func TestUpdateWorkout_WithMock_TableDriven(t *testing.T) {
+// TestUpdateWorkout テーブル駆動テストでワークアウト更新をテスト
+func TestUpdateWorkout(t *testing.T) {
 	tests := []struct {
 		name         string
 		setupWorkout *domain.Workout // 事前に作成するワークアウト
@@ -219,7 +220,7 @@ func TestUpdateWorkout_WithMock_TableDriven(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := NewMockWorkoutRepository()
+			mockRepo := repository.NewMockWorkoutRepository()
 			manager := NewWorkoutManagerWithRepository(mockRepo)
 
 			// 事前データ作成
@@ -260,7 +261,7 @@ func TestUpdateWorkout_WithMock_TableDriven(t *testing.T) {
 
 			// 正常系の場合、更新が反映されているか確認
 			if !tt.wantErr {
-				updated, err := mockRepo.GetWorkoutByID(tt.updateID)
+				updated, err := mockRepo.GetWorkout(tt.updateID)
 				if err != nil {
 					t.Fatalf("Failed to get updated workout: %v", err)
 				}
@@ -279,8 +280,8 @@ func TestUpdateWorkout_WithMock_TableDriven(t *testing.T) {
 	}
 }
 
-// TestDeleteWorkout_WithMock_TableDriven テーブル駆動テストでワークアウト削除をテスト
-func TestDeleteWorkout_WithMock_TableDriven(t *testing.T) {
+// TestDeleteWorkout テーブル駆動テストでワークアウト削除をテスト
+func TestDeleteWorkout(t *testing.T) {
 	tests := []struct {
 		name         string
 		setupWorkout *domain.Workout
@@ -321,7 +322,7 @@ func TestDeleteWorkout_WithMock_TableDriven(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := NewMockWorkoutRepository()
+			mockRepo := repository.NewMockWorkoutRepository()
 			manager := NewWorkoutManagerWithRepository(mockRepo)
 
 			// 事前データ作成
@@ -342,7 +343,7 @@ func TestDeleteWorkout_WithMock_TableDriven(t *testing.T) {
 
 			// 正常系の場合、削除されていることを確認
 			if !tt.wantErr {
-				_, err := mockRepo.GetWorkoutByID(tt.deleteID)
+				_, err := mockRepo.GetWorkout(tt.deleteID)
 				if err == nil {
 					t.Error("Expected workout to be deleted, but it still exists")
 				}
@@ -351,8 +352,8 @@ func TestDeleteWorkout_WithMock_TableDriven(t *testing.T) {
 	}
 }
 
-// TestListWorkouts_WithMock_TableDriven テーブル駆動テストでワークアウト一覧取得をテスト
-func TestListWorkouts_WithMock_TableDriven(t *testing.T) {
+// TestListWorkouts テーブル駆動テストでワークアウト一覧取得をテスト
+func TestListWorkouts(t *testing.T) {
 	tests := []struct {
 		name              string
 		setupWorkouts     []*domain.Workout
@@ -432,7 +433,7 @@ func TestListWorkouts_WithMock_TableDriven(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := NewMockWorkoutRepository()
+			mockRepo := repository.NewMockWorkoutRepository()
 			manager := NewWorkoutManagerWithRepository(mockRepo)
 
 			// 事前データ作成
@@ -469,7 +470,7 @@ func intPtr(i int) *int {
 
 // TestCreateWorkout_WithMock 基本的なワークアウト作成テスト（後方互換性のため残す）
 func TestCreateWorkout_WithMock(t *testing.T) {
-	mockRepo := NewMockWorkoutRepository()
+	mockRepo := repository.NewMockWorkoutRepository()
 	manager := NewWorkoutManagerWithRepository(mockRepo)
 
 	workout, err := manager.CreateWorkout(CreateWorkoutRequest{

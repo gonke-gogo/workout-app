@@ -162,6 +162,21 @@
       - 良い例: `repo domain.WorkoutRepository` （インターフェースに依存）
     - 結果: パッケージ間が疎結合になり、変更に強く、テストしやすい設計を実現
 
+    - 疎結合の観点
+    ```go
+      // 本番環境
+      repo, _ := repository.NewGORMRepository(dsn)
+      manager := usecase.NewWorkoutManagerWithRepository(repo)
+      
+      // テスト環境
+      mockRepo := usecase.NewMockWorkoutRepository()
+      manager := usecase.NewWorkoutManagerWithRepository(mockRepo)
+    //        
+    ```
+      - usecase パッケージは repository パッケージを import していない。
+      - epository 側が usecase の interface を実装している（依存方向が内向き）。
+      - 「usecase は外部実装を知らない」＝疎結合。
+
 - インターフェースによる共通化
   - usecase/mock_repository.go & usecase/workout_usecase_test.go
   - 同じインターフェース、異なる実装
@@ -187,15 +202,11 @@
     manager := usecase.NewWorkoutManagerWithRepository(mockRepo)
     //        
     ```
-  
-  - 実装したテストケース
-    - TestCreateWorkout_WithMock: 基本的な作成テスト
-    - TestGetWorkout_WithMock: 取得テスト
-    - TestCreateWorkout_WithOptions: オプション付き作成テスト
-    - TestListWorkouts_WithMock: 一覧取得テスト
-    - TestDeleteWorkout_WithMock: 削除テスト
-    - TestValidation_NegativeSets: バリデーションテスト
-    - 全テスト成功、DBサーバー不要で実行可能 ✅
+    - どちらのrepoを渡しても、同じメソッドで動く。
+    - manager.CreateWorkout() の呼び出しコードは、DBでもMockでも同じ。
+    - repo の型が変わっても、interfaceに共通のメソッド群があるから呼び出し側を変えなくていい。
+    - 「複数実装を共通の呼び口で扱えている」＝共通化。
+
   
   - メリット
     - DBサーバー不要でテスト可能（超高速: 0.689s で全テスト完了）
@@ -204,11 +215,22 @@
     - CI/CDパイプラインで即座にテスト実行可能
     - モックの動作を自由にコントロール可能（エラーケースのテストも容易）
   
+  - 悪い例<br>
+    ```go
+        type WorkoutManager struct {
+        repo *repository.GORMRepository
+      }
+    ```
+    こうしてしまうと、具体に依存してしまい、テストのときもGormを用意しなければいけなくなる。疎結合にならない。
+    `domain.WorkoutRepository` ってしておけば、repository層でgormじゃないやつを使いたくなって実装を変更しても、usecaseは実装を変える必要はない
+  
   - 共通化の意義
     - インターフェースがあることで、実装の違いを吸収
     - 本番コードとテストコードで同じAPIを使用
     - 実装を追加しても既存コード（usecase層）は無変更
     - 将来的にPostgreSQLやRedis実装を追加しても、usecase層は変更不要
+
+  - 
 - 値にレシーバーメソッドを定義
   - domain/enums.go
   - 型定義に対してメソッドを定義できる
