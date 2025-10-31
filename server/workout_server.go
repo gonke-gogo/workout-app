@@ -278,34 +278,6 @@ func (s *GRPCServer) buildWorkoutSummary(workouts []*domain.Workout) string {
 	return builder.String()
 }
 
-// GetWorkoutStats ワークアウト統計を取得
-func (s *GRPCServer) GetWorkoutStats(ctx context.Context, req *proto.GetWorkoutStatsRequest) (*proto.GetWorkoutStatsResponse, error) {
-	log.Printf("📊 ワークアウト統計を取得中: 期間 %s", req.Period)
-
-	stats, err := s.workoutManager.GetWorkoutStats(req.Period)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workout stats: %v", err)
-	}
-
-	response := &proto.GetWorkoutStatsResponse{
-		TotalWorkouts:     int32(stats["total_workouts"].(int)),
-		CompletedWorkouts: int32(stats["completed_workouts"].(int)),
-		SkippedWorkouts:   int32(stats["skipped_workouts"].(int)),
-		TotalWeightLifted: stats["total_weight_lifted"].(float64),
-		MuscleGroupStats:  make(map[string]int32),
-		Message:           fmt.Sprintf("📈 %sの統計データです！", req.Period),
-	}
-
-	// 筋肉群別統計を変換
-	if muscleGroupStats, ok := stats["muscle_group_stats"].(map[string]int); ok {
-		for group, count := range muscleGroupStats {
-			response.MuscleGroupStats[group] = int32(count)
-		}
-	}
-
-	return response, nil
-}
-
 // GetHighIntensityWorkouts 高強度ワークアウト一覧を取得（ジェネリクス使用例）
 func (s *GRPCServer) GetHighIntensityWorkouts(ctx context.Context, req *proto.GetHighIntensityWorkoutsRequest) (*proto.GetHighIntensityWorkoutsResponse, error) {
 	log.Printf("🔥 高強度ワークアウトを取得中...")
