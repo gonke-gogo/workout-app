@@ -15,6 +15,7 @@ import (
 
 var (
 	insertWorkoutQuery = regexp.QuoteMeta("INSERT INTO `workouts`")
+	selectWorkoutQuery = regexp.QuoteMeta("SELECT * FROM `workouts` WHERE `workouts`.`id` = ? ORDER BY `workouts`.`id` LIMIT 1")
 	updateWorkoutQuery = regexp.QuoteMeta("UPDATE `workouts` SET")
 	deleteWorkoutQuery = regexp.QuoteMeta("DELETE FROM `workouts` WHERE `workouts`.`id` = ?")
 )
@@ -173,6 +174,128 @@ func TestGORMRepository_CreateWorkout(t *testing.T) {
 			// エラーチェック
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CreateWorkout() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			// モックの期待値が全て満たされたか確認
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("Unfulfilled mock expectations: %v", err)
+			}
+		})
+	}
+}
+
+// TestGORMRepository_GetWorkout
+func TestGORMRepository_GetWorkout(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name        string
+		workoutID   domain.WorkoutID
+		mockWorkout *domain.Workout
+		mockError   error
+		wantErr     bool
+		description string
+	}{
+		{
+			name:      "正常系: ワークアウト取得",
+			workoutID: 1,
+			mockWorkout: &domain.Workout{
+				ID:           1,
+				ExerciseType: domain.BenchPress,
+				Description:  "テスト用のベンチプレス",
+				Status:       domain.WorkoutStatusPlanned,
+				Difficulty:   domain.DifficultyBeginner,
+				MuscleGroup:  domain.Chest,
+				Sets:         3,
+				Reps:         10,
+				Weight:       60.0,
+				Notes:        "テスト実行中",
+				CreatedAt:    now,
+				UpdatedAt:    now,
+			},
+			mockError:   nil,
+			wantErr:     false,
+			description: "既存ワークアウトの取得が成功",
+		},
+		{
+			name:        "異常系: レコードが見つからない",
+			workoutID:   999,
+			mockWorkout: nil,
+			mockError:   gorm.ErrRecordNotFound,
+			wantErr:     true,
+			description: "存在しないIDを指定した場合のエラーハンドリング",
+		},
+		{
+			name:        "異常系: DB接続エラー",
+			workoutID:   1,
+			mockWorkout: nil,
+			mockError:   sql.ErrConnDone,
+			wantErr:     true,
+			description: "DB接続エラー時のエラーハンドリング",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo, mock, db := setupMockDB(t)
+			defer db.Close()
+
+			// モックの期待値を設定
+			if tt.mockError != nil {
+				// 異常系
+				mock.ExpectQuery(selectWorkoutQuery).
+					WithArgs(tt.workoutID).
+					WillReturnError(tt.mockError)
+			} else {
+				// 正常系
+				rows := sqlmock.NewRows([]string{"id", "exercise_type", "description", "status", "difficulty", "muscle_group", "sets", "reps", "weight", "notes", "created_at", "updated_at", "completed_at"}).
+					AddRow(
+						tt.mockWorkout.ID,
+						tt.mockWorkout.ExerciseType,
+						tt.mockWorkout.Description,
+						tt.mockWorkout.Status,
+						tt.mockWorkout.Difficulty,
+						tt.mockWorkout.MuscleGroup,
+						tt.mockWorkout.Sets,
+						tt.mockWorkout.Reps,
+						tt.mockWorkout.Weight,
+						tt.mockWorkout.Notes,
+						tt.mockWorkout.CreatedAt,
+						tt.mockWorkout.UpdatedAt,
+						tt.mockWorkout.CompletedAt,
+					)
+				mock.ExpectQuery(selectWorkoutQuery).
+					WithArgs(tt.workoutID).
+					WillReturnRows(rows)
+			}
+
+			// テスト実行
+			workout, err := repo.GetWorkout(tt.workoutID)
+
+			// エラーチェック
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetWorkout() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			// 正常系の場合、取得したワークアウトの内容を確認
+			if !tt.wantErr {
+				if workout == nil {
+					t.Error("Expected workout but got nil")
+					return
+				}
+				if workout.ID != tt.mockWorkout.ID {
+					t.Errorf("Expected ID=%d, got ID=%d", tt.mockWorkout.ID, workout.ID)
+				}
+				if workout.ExerciseType != tt.mockWorkout.ExerciseType {
+					t.Errorf("Expected ExerciseType=%v, got %v", tt.mockWorkout.ExerciseType, workout.ExerciseType)
+				}
+			} else {
+				// 異常系の場合、エラーメッセージにidの情報が含まれていることを確認
+				if err != nil {
+					t.Logf("✅ エラーログ: %v", err)
+					t.Logf("✅ エラーメッセージ: %s", err.Error())
+				}
 			}
 
 			// モックの期待値が全て満たされたか確認

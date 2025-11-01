@@ -251,7 +251,7 @@ func (s *GRPCServer) buildWorkoutSummary(workouts []*domain.Workout) string {
 	}
 
 	var builder strings.Builder
-	// 概算容量を計算（各ワークアウト約50文字と仮定）
+	// 推定サイズを計算
 	estimatedSize := len(workouts)*50 + 100
 	builder.Grow(estimatedSize)
 
@@ -259,7 +259,6 @@ func (s *GRPCServer) buildWorkoutSummary(workouts []*domain.Workout) string {
 	builder.WriteString(fmt.Sprintf("%d件", len(workouts)))
 	builder.WriteString("):\n")
 
-	// Go基礎技術: 効率的なループ処理
 	for i, workout := range workouts {
 		if i > 0 {
 			builder.WriteString("\n")
@@ -271,7 +270,7 @@ func (s *GRPCServer) buildWorkoutSummary(workouts []*domain.Workout) string {
 		}
 
 		if workout.Weight > 0 {
-			builder.WriteString(fmt.Sprintf(" @ %.1fkg", workout.Weight))
+			builder.WriteString(fmt.Sprintf(" @ %.2fkg", workout.Weight))
 		}
 	}
 
