@@ -230,6 +230,29 @@
     - 実装を追加しても既存コード（usecase層）は無変更
     - 将来的にPostgreSQLやRedis実装を追加しても、usecase層は変更不要
 
+    - もっと落とし込むと
+      - NewWorkoutManagerWithRepositoryは引数にWorkoutRepositoryっていうインターフェースを欲してるよ
+      - ```go
+            repo := repository.NewGORMRepository(db)
+
+            // ワークアウトマネージャーを作成（MySQLリポジトリを使用）
+            workoutManager := usecase.NewWorkoutManagerWithRepository(repo)
+        ```
+        こんな感じで本番環境では、NewGORMRepositoryから生成されたインターフェースを満たすGORMRepositoryを注入してるよ
+      
+
+      - そして、usecase_testでは
+        ```go
+          mockRepo := repository.NewMockWorkoutRepository()
+          manager := NewWorkoutManagerWithRepository(mockRepo)
+
+          // テスト実行
+          workout, err := manager.CreateWorkout(tt.request)
+        ```
+        こんな感じでNewMockWorkoutRepositoryから生成されるインターフェースを満たすMockWorkoutRepositoryを注入しているよ。
+
+      - NewWorkoutManagerWithRepositoryに対して、それぞれGORMRepositoryとMockWorkoutRepositoryっていうWorkoutRepositoryインターフェースを実装したもの渡せている。これがインターフェースの共通化の概念に当てはまる
+
   - 
 - 値にレシーバーメソッドを定義
   - domain/enums.go
@@ -316,9 +339,49 @@
     }
     ```
   
-  - パフォーマンス比較（概算）
-    - + 演算子: 1000回の連結で 約100ms
-    - strings.Builder: 1000回の連結で 約1ms（事前容量確保あり）
+  - パフォーマンス比較（実際のベンチマーク結果）
+    - テスト条件: 100個のワークアウトを文字列化
+    
+    - Badパターン（+演算子）:
+      ```
+      BenchmarkBuildWorkoutSummary_Bad-8: 
+        実行回数: 5,532回
+        実行時間: 197,207 ns/op（約0.197ms/回）
+        メモリ使用: 1,317,657 B/op（約1.32MB/回）
+        割り当て回数: 1,005 allocs/op
+      ```
+    
+    - Goodパターン（strings.Builder）:
+      ```
+      BenchmarkBuildWorkoutSummary_Good-8:
+        実行回数: 34,141回
+        実行時間: 38,682 ns/op（約0.039ms/回）
+        メモリ使用: 23,369 B/op（約23KB/回）
+        割り当て回数: 603 allocs/op
+      ```
+      重要なポイント
+        実行回数（左側の数字）
+        同じ時間内で実行できた回数
+        Good（34,141回）は Bad（5,532回）の約6.2倍
+        同じ時間でより多く実行できる = 高速
+        実行時間（ns/op）
+        1回あたりの実行時間（ナノ秒）
+        Good（38,682ns）は Bad（197,207ns）の約5.1倍速い
+        197,207 ÷ 38,682 ≈ 5.1
+        メモリ使用量（B/op）
+        1回あたりのメモリ使用量（バイト）
+        Good（23KB）は Bad（1.32MB）の約56.4分の1
+        メモリ効率が良い
+        割り当て回数（allocs/op）
+        1回あたりのメモリ割り当て回数
+        Good（603回）は Bad（1,005回）の約1.7分の1
+        割り当て回数が少ない = パフォーマンスが良い
+    
+    - 改善率:
+      - **実行速度**: GoodはBadの約**5.1倍速い**（197,207 ÷ 38,682）
+      - **メモリ使用量**: GoodはBadの約**56.4分の1**（1,317,657 ÷ 23,369）
+      - **メモリ割り当て回数**: GoodはBadの約**1.7分の1**（1,005 ÷ 603）
+      - **実行回数**: 同じ時間内でGoodは約**6.2倍多く実行可能**（34,141 ÷ 5,532）
   
   - 使い分け
     - ループ内での文字列結合は必ず`strings.Builder`を使う
@@ -635,3 +698,7 @@
     - ✅ 正常系と異常系の両方をテスト可能
     - ✅ 様々なエラーシナリオを簡単にシミュレート
     - ✅ テーブル駆動テストで複数パターンを効率的にテスト
+
+- 文字列結合　性能差チェック
+  - go test ./server -bench=BenchmarkBuildWorkoutSummary_Bad -benchmem
+  - go test ./server -bench=BenchmarkBuildWorkoutSummary_Good -benchmem

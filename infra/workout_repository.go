@@ -22,7 +22,7 @@ func NewGORMRepository(db *gorm.DB) *GORMRepository {
 // CreateWorkout ワークアウトを作成
 func (r *GORMRepository) CreateWorkout(workout *domain.Workout) error {
 	if err := r.db.Create(workout).Error; err != nil {
-		return fmt.Errorf("failed to create workout: %w", err)
+		return fmt.Errorf("failed to create workout (exercise_type=%d): %w", workout.ExerciseType, err)
 	}
 	return nil
 }
@@ -32,9 +32,9 @@ func (r *GORMRepository) GetWorkout(id domain.WorkoutID) (*domain.Workout, error
 	var workout domain.Workout
 	if err := r.db.First(&workout, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("workout not found: %w", err)
+			return nil, fmt.Errorf("workout not found (id=%d): %w", id, err)
 		}
-		return nil, fmt.Errorf("failed to get workout: %w", err)
+		return nil, fmt.Errorf("failed to get workout (id=%d): %w", id, err)
 	}
 
 	return &workout, nil
@@ -44,7 +44,7 @@ func (r *GORMRepository) GetWorkout(id domain.WorkoutID) (*domain.Workout, error
 func (r *GORMRepository) UpdateWorkout(workout *domain.Workout) error {
 	workout.UpdatedAt = time.Now()
 	if err := r.db.Save(workout).Error; err != nil {
-		return fmt.Errorf("failed to update workout: %w", err)
+		return fmt.Errorf("failed to update workout (id=%d, exercise_type=%d): %w", workout.ID, workout.ExerciseType, err)
 	}
 	return nil
 }
@@ -52,7 +52,7 @@ func (r *GORMRepository) UpdateWorkout(workout *domain.Workout) error {
 // DeleteWorkout ワークアウトを削除
 func (r *GORMRepository) DeleteWorkout(id domain.WorkoutID) error {
 	if err := r.db.Delete(&domain.Workout{}, id).Error; err != nil {
-		return fmt.Errorf("failed to delete workout: %w", err)
+		return fmt.Errorf("failed to delete workout (id=%d): %w", id, err)
 	}
 	return nil
 }

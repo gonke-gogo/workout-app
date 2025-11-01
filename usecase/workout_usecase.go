@@ -115,7 +115,8 @@ func (wm *WorkoutManager) CreateWorkout(req CreateWorkoutRequest) (*domain.Worko
 	}
 
 	// ビジネスロジック: 最終的なバリデーション
-	if err := wm.validateWorkoutData(workout); err != nil {
+	// errValidatorを使用したバリデーション（冗長的なエラーチェックをまとめる）
+	if err := wm.validateWorkoutDataWithErrValidator(workout); err != nil {
 		workoutErr := &appErrors.WorkoutError{
 			Op:           "CreateWorkout",
 			ExerciseType: req.ExerciseType,
@@ -156,6 +157,133 @@ func (wm *WorkoutManager) validateWorkoutData(workout *domain.Workout) error {
 		return fmt.Errorf("weight cannot be negative: %.2f", workout.Weight)
 	}
 	return nil
+}
+
+// ValidationErrors 複数のバリデーションエラーを保持するカスタムエラー型
+// 全てのバリデーションエラーを収集して返すため
+type ValidationErrors struct {
+	Errors []error
+}
+
+// 注意: error()メソッドで len(ev.errors) > 0 の場合のみ ValidationErrors が作成されるため、
+// len(ve.Errors) == 0 の場合は通常発生しない（防御的プログラミングのためのチェック）
+func (ve *ValidationErrors) Error() string {
+	if len(ve.Errors) == 0 {
+		// 通常は発生しないが、防御的プログラミングとしてチェック
+		return "validation errors: no errors found (internal error)"
+	}
+	if len(ve.Errors) == 1 {
+		return ve.Errors[0].Error()
+	}
+	// 複数のエラーがある場合: strings.Builderを使用した効率的な文字列結合
+	var builder strings.Builder
+	// 概算容量を事前確保（各エラーメッセージを平均50文字と仮定）
+	estimatedSize := len(ve.Errors) * 50
+	builder.Grow(estimatedSize)
+
+	for i, err := range ve.Errors {
+		if i > 0 {
+			builder.WriteString("; ")
+		}
+		builder.WriteString(err.Error())
+	}
+	return builder.String()
+}
+
+// errValidator 冗長的なエラーチェックをまとめるための構造体
+// 「複数のエラーをまとめる方法」の評価項目に対応
+// errWriterパターンを参考に、複数のバリデーション処理を連続して行い、
+// 全てのバリデーションを実行し、全てのエラーを収集して返す
+type errValidator struct {
+	errors []error // 内部でエラーを保持（スライスで複数保持）
+}
+
+// validate バリデーション関数を実行し、エラーが発生した場合は内部に保持
+// 全てのバリデーションを実行するため、エラーがあっても処理を継続
+func (ev *errValidator) validate(fn func() error) {
+	err := fn()
+	if err != nil {
+		ev.errors = append(ev.errors, err)
+	}
+}
+
+// validateSets Setsの値を検証
+func (ev *errValidator) validateSets(sets int) {
+	ev.validate(func() error {
+		if sets < 0 {
+			return fmt.Errorf("sets cannot be negative: %d", sets)
+		}
+		return nil
+	})
+}
+
+// validateReps Repsの値を検証
+func (ev *errValidator) validateReps(reps int) {
+	ev.validate(func() error {
+		if reps < 0 {
+			return fmt.Errorf("reps cannot be negative: %d", reps)
+		}
+		return nil
+	})
+}
+
+// validateWeight Weightの値を検証
+func (ev *errValidator) validateWeight(weight float64) {
+	ev.validate(func() error {
+		if weight < 0 {
+			return fmt.Errorf("weight cannot be negative: %.2f", weight)
+		}
+		return nil
+	})
+}
+
+// validateID IDの値を検証
+func (ev *errValidator) validateID(id domain.WorkoutID) {
+	ev.validate(func() error {
+		if id <= 0 {
+			return fmt.Errorf("invalid workout ID: %d", id)
+		}
+		return nil
+	})
+}
+
+// validateExerciseType ExerciseTypeの値を検証
+func (ev *errValidator) validateExerciseType(exerciseType domain.ExerciseType) {
+	ev.validate(func() error {
+		if exerciseType == domain.ExerciseUnspecified {
+			return fmt.Errorf("exercise type must be specified")
+		}
+		return nil
+	})
+}
+
+// error 保持しているエラーを返す（nilの場合はnilを返す）
+// 複数のエラーがある場合は ValidationErrors として返す
+func (ev *errValidator) error() error {
+	if len(ev.errors) == 0 {
+		return nil
+	}
+	if len(ev.errors) == 1 {
+		return ev.errors[0]
+	}
+	// 複数のエラーがある場合は ValidationErrors として返す
+	return &ValidationErrors{Errors: ev.errors}
+}
+
+// validateWorkoutDataWithErrValidator errValidatorを使用したバリデーション
+// 冗長的なエラーチェックを構造体にまとめることで、呼び出し元のコードがシンプルになる
+// 全てのバリデーションを実行し、全てのエラーを収集して返す
+func (wm *WorkoutManager) validateWorkoutDataWithErrValidator(workout *domain.Workout) error {
+	validator := &errValidator{}
+
+	// 複数のバリデーションを全て実行（エラーがあっても継続）
+	// 全てのエラーを収集するため、スキップしない
+	validator.validateSets(workout.Sets)
+	validator.validateReps(workout.Reps)
+	validator.validateWeight(workout.Weight)
+
+	// 最終的なエラーチェック（複数のエラーがある場合はまとめて返す）
+	return validator.error()
 }
 
 // logWorkoutCreated ワークアウト作成時のログ出力
@@ -304,6 +432,30 @@ func (wm *WorkoutManager) validateUpdateInput(id domain.WorkoutID, exerciseType 
 		return fmt.Errorf("weight cannot be negative: %.2f", *weight)
 	}
 	return nil
+}
+
+// validateUpdateInputWithErrValidator errValidatorを使用した更新時のバリデーション
+// 冗長的なエラーチェックを構造体にまとめることで、呼び出し元のコードがシンプルになる
+func (wm *WorkoutManager) validateUpdateInputWithErrValidator(id domain.WorkoutID, exerciseType domain.ExerciseType, sets, reps *int, weight *float64) error {
+	validator := &errValidator{}
+
+	// 複数のバリデーションを連続して実行
+	// 1つでもエラーが発生した場合、それ以降の処理はスキップされる
+	validator.validateID(id)
+	validator.validateExerciseType(exerciseType)
+
+	if sets != nil {
+		validator.validateSets(*sets)
+	}
+	if reps != nil {
+		validator.validateReps(*reps)
+	}
+	if weight != nil {
+		validator.validateWeight(*weight)
+	}
+
+	// 最終的なエラーチェックは1回だけ
+	return validator.error()
 }
 
 // handleStatusChange ステータス変更時のビジネスロジック
