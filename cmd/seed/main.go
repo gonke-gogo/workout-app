@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"time"
@@ -13,8 +14,18 @@ import (
 )
 
 func main() {
+	// コマンドライン引数の定義
+	var (
+		addr    = flag.String("addr", "localhost:50051", "gRPCサーバーのアドレス (例: localhost:50051)")
+		timeout = flag.Duration("timeout", 5*time.Second, "リクエストのタイムアウト時間")
+	)
+	flag.Parse()
+
+	log.Printf("🔌 gRPCサーバーに接続: %s", *addr)
+	log.Printf("⏱️  タイムアウト: %v", *timeout)
+
 	// gRPCサーバーに接続
-	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("接続に失敗: %v", err)
 	}
@@ -65,7 +76,7 @@ func main() {
 			Weight:       workout.weight,
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 		resp, err := client.CreateWorkout(ctx, req)
 		cancel()
 
@@ -82,7 +93,7 @@ func main() {
 	}
 
 	fmt.Printf("\n🎉 完了！ %d/%d個のワークアウトを作成しました！\n", successCount, len(workouts))
-	fmt.Println("📊 結果を確認するには: export LC_ALL=ja_JP.UTF-8 && evans -r repl -p 50051")
+	fmt.Printf("📊 結果を確認するには: export LC_ALL=ja_JP.UTF-8 && evans -r repl -p %s\n", *addr)
 	fmt.Println("   そして call ListWorkouts を実行してください")
 }
 

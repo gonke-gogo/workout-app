@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -42,6 +43,12 @@ func getEnvWithDefault(key, defaultValue string) string {
 }
 
 func main() {
+	// コマンドライン引数の定義
+	var (
+		port = flag.Int("port", 0, "gRPCサーバーのポート番号 (デフォルト: 環境変数GRPC_PORTまたは50051)")
+	)
+	flag.Parse()
+
 	log.Printf("💪 筋トレアプリを起動中...")
 	log.Printf("🔥 環境変数を読み込み中...")
 
@@ -59,10 +66,17 @@ func main() {
 		log.Fatalf("❌ DB_PORT is invalid: %s", dbPortStr)
 	}
 
-	serverPortStr := getEnvWithDefault("GRPC_PORT", "50051")
-	serverPort, err = strconv.Atoi(serverPortStr)
-	if err != nil {
-		log.Fatalf("❌ GRPC_PORT is invalid: %s", serverPortStr)
+	// ポート番号の取得（コマンドライン引数 > 環境変数 > デフォルト値の優先順位）
+	if *port > 0 {
+		serverPort = *port
+		log.Printf("✅ コマンドライン引数からポートを取得: %d", serverPort)
+	} else {
+		serverPortStr := getEnvWithDefault("GRPC_PORT", "50051")
+		serverPort, err = strconv.Atoi(serverPortStr)
+		if err != nil {
+			log.Fatalf("❌ GRPC_PORT is invalid: %s", serverPortStr)
+		}
+		log.Printf("✅ 環境変数からポートを取得: %d", serverPort)
 	}
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&collation=utf8mb4_unicode_ci&loc=Local",
