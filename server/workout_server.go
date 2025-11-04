@@ -277,11 +277,10 @@ func (s *GRPCServer) buildWorkoutSummary(workouts []*domain.Workout) string {
 	return builder.String()
 }
 
-// GetHighIntensityWorkouts 高強度ワークアウト一覧を取得（ジェネリクス使用例）
+// GetHighIntensityWorkouts 高強度ワークアウト一覧を取得
 func (s *GRPCServer) GetHighIntensityWorkouts(ctx context.Context, req *proto.GetHighIntensityWorkoutsRequest) (*proto.GetHighIntensityWorkoutsResponse, error) {
 	log.Printf("🔥 高強度ワークアウトを取得中...")
 
-	// ビジネスロジック層で高強度ワークアウトを取得（ジェネリクス関数使用）
 	workouts, err := s.workoutManager.GetHighIntensityWorkouts()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get high intensity workouts: %v", err)

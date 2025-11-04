@@ -24,10 +24,7 @@ service WorkoutService {
   // ワークアウト一覧を取得
   rpc ListWorkouts(ListWorkoutsRequest) returns (ListWorkoutsResponse);
   
-  // ワークアウト統計を取得
-  rpc GetWorkoutStats(GetWorkoutStatsRequest) returns (GetWorkoutStatsResponse);
-  
-  // 高強度ワークアウト一覧を取得（ジェネリクス使用例）
+  // 高強度ワークアウト一覧を取得
   rpc GetHighIntensityWorkouts(GetHighIntensityWorkoutsRequest) returns (GetHighIntensityWorkoutsResponse);
 }
 
@@ -164,21 +161,6 @@ message ListWorkoutsResponse {
   repeated Workout workouts = 1;
   int32 total_count = 2;
   string message = 3;  // サマリーメッセージ
-}
-
-// ワークアウト統計取得リクエスト
-message GetWorkoutStatsRequest {
-  string period = 1; // "today", "week", "month"
-}
-
-// ワークアウト統計取得レスポンス
-message GetWorkoutStatsResponse {
-  int32 total_workouts = 1;
-  int32 completed_workouts = 2;
-  int32 skipped_workouts = 3;
-  double total_weight_lifted = 4;
-  map<string, int32> muscle_group_stats = 5;
-  string message = 6;
 }
 
 // 高強度ワークアウト取得リクエスト

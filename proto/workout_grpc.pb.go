@@ -24,7 +24,6 @@ const (
 	WorkoutService_UpdateWorkout_FullMethodName            = "/workout.WorkoutService/UpdateWorkout"
 	WorkoutService_DeleteWorkout_FullMethodName            = "/workout.WorkoutService/DeleteWorkout"
 	WorkoutService_ListWorkouts_FullMethodName             = "/workout.WorkoutService/ListWorkouts"
-	WorkoutService_GetWorkoutStats_FullMethodName          = "/workout.WorkoutService/GetWorkoutStats"
 	WorkoutService_GetHighIntensityWorkouts_FullMethodName = "/workout.WorkoutService/GetHighIntensityWorkouts"
 )
 
@@ -42,9 +41,7 @@ type WorkoutServiceClient interface {
 	DeleteWorkout(ctx context.Context, in *DeleteWorkoutRequest, opts ...grpc.CallOption) (*DeleteWorkoutResponse, error)
 	// ワークアウト一覧を取得
 	ListWorkouts(ctx context.Context, in *ListWorkoutsRequest, opts ...grpc.CallOption) (*ListWorkoutsResponse, error)
-	// ワークアウト統計を取得
-	GetWorkoutStats(ctx context.Context, in *GetWorkoutStatsRequest, opts ...grpc.CallOption) (*GetWorkoutStatsResponse, error)
-	// 高強度ワークアウト一覧を取得（ジェネリクス使用例）
+	// 高強度ワークアウト一覧を取得
 	GetHighIntensityWorkouts(ctx context.Context, in *GetHighIntensityWorkoutsRequest, opts ...grpc.CallOption) (*GetHighIntensityWorkoutsResponse, error)
 }
 
@@ -101,15 +98,6 @@ func (c *workoutServiceClient) ListWorkouts(ctx context.Context, in *ListWorkout
 	return out, nil
 }
 
-func (c *workoutServiceClient) GetWorkoutStats(ctx context.Context, in *GetWorkoutStatsRequest, opts ...grpc.CallOption) (*GetWorkoutStatsResponse, error) {
-	out := new(GetWorkoutStatsResponse)
-	err := c.cc.Invoke(ctx, WorkoutService_GetWorkoutStats_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *workoutServiceClient) GetHighIntensityWorkouts(ctx context.Context, in *GetHighIntensityWorkoutsRequest, opts ...grpc.CallOption) (*GetHighIntensityWorkoutsResponse, error) {
 	out := new(GetHighIntensityWorkoutsResponse)
 	err := c.cc.Invoke(ctx, WorkoutService_GetHighIntensityWorkouts_FullMethodName, in, out, opts...)
@@ -133,9 +121,7 @@ type WorkoutServiceServer interface {
 	DeleteWorkout(context.Context, *DeleteWorkoutRequest) (*DeleteWorkoutResponse, error)
 	// ワークアウト一覧を取得
 	ListWorkouts(context.Context, *ListWorkoutsRequest) (*ListWorkoutsResponse, error)
-	// ワークアウト統計を取得
-	GetWorkoutStats(context.Context, *GetWorkoutStatsRequest) (*GetWorkoutStatsResponse, error)
-	// 高強度ワークアウト一覧を取得（ジェネリクス使用例）
+	// 高強度ワークアウト一覧を取得
 	GetHighIntensityWorkouts(context.Context, *GetHighIntensityWorkoutsRequest) (*GetHighIntensityWorkoutsResponse, error)
 	mustEmbedUnimplementedWorkoutServiceServer()
 }
@@ -158,9 +144,6 @@ func (UnimplementedWorkoutServiceServer) DeleteWorkout(context.Context, *DeleteW
 }
 func (UnimplementedWorkoutServiceServer) ListWorkouts(context.Context, *ListWorkoutsRequest) (*ListWorkoutsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListWorkouts not implemented")
-}
-func (UnimplementedWorkoutServiceServer) GetWorkoutStats(context.Context, *GetWorkoutStatsRequest) (*GetWorkoutStatsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetWorkoutStats not implemented")
 }
 func (UnimplementedWorkoutServiceServer) GetHighIntensityWorkouts(context.Context, *GetHighIntensityWorkoutsRequest) (*GetHighIntensityWorkoutsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetHighIntensityWorkouts not implemented")
@@ -268,24 +251,6 @@ func _WorkoutService_ListWorkouts_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _WorkoutService_GetWorkoutStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetWorkoutStatsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(WorkoutServiceServer).GetWorkoutStats(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: WorkoutService_GetWorkoutStats_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(WorkoutServiceServer).GetWorkoutStats(ctx, req.(*GetWorkoutStatsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _WorkoutService_GetHighIntensityWorkouts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetHighIntensityWorkoutsRequest)
 	if err := dec(in); err != nil {
@@ -330,10 +295,6 @@ var WorkoutService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListWorkouts",
 			Handler:    _WorkoutService_ListWorkouts_Handler,
-		},
-		{
-			MethodName: "GetWorkoutStats",
-			Handler:    _WorkoutService_GetWorkoutStats_Handler,
 		},
 		{
 			MethodName: "GetHighIntensityWorkouts",

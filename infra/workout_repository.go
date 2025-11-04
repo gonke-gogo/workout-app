@@ -65,7 +65,6 @@ func (r *GORMRepository) ListWorkouts(statusFilter *int, difficultyFilter *int, 
 		fmt.Printf("🔍 ListWorkouts実行時間: %v\n", duration)
 	}()
 
-	// ここを変えて性能評価
 	workouts := make([]*domain.Workout, 0, 100)
 
 	query := r.db.Model(&domain.Workout{})
@@ -104,67 +103,4 @@ func (r *GORMRepository) GetWorkoutCount() (int, error) {
 		return 0, fmt.Errorf("failed to get workout count: %w", err)
 	}
 	return int(count), nil
-}
-
-// GetWorkoutStats ワークアウト統計を取得
-func (r *GORMRepository) GetWorkoutStats(period string) (map[string]interface{}, error) {
-	stats := make(map[string]interface{})
-
-	// 期間フィルタを設定
-	var timeFilter time.Time
-	switch period {
-	case "today":
-		timeFilter = time.Now().Truncate(24 * time.Hour)
-	case "week":
-		timeFilter = time.Now().AddDate(0, 0, -7)
-	case "month":
-		timeFilter = time.Now().AddDate(0, -1, 0)
-	default:
-		timeFilter = time.Now().AddDate(0, 0, -30) // デフォルトは30日
-	}
-
-	// 総ワークアウト数
-	var totalCount int64
-	if err := r.db.Model(&domain.Workout{}).Where("created_at >= ?", timeFilter).Count(&totalCount).Error; err != nil {
-		return nil, fmt.Errorf("failed to get total workout count: %w", err)
-	}
-	stats["total_workouts"] = int(totalCount)
-
-	// 完了したワークアウト数
-	var completedCount int64
-	if err := r.db.Model(&domain.Workout{}).Where("status = ? AND created_at >= ?", domain.WorkoutStatusCompleted, timeFilter).Count(&completedCount).Error; err != nil {
-		return nil, fmt.Errorf("failed to get completed workout count: %w", err)
-	}
-	stats["completed_workouts"] = int(completedCount)
-
-	// スキップしたワークアウト数
-	var skippedCount int64
-	if err := r.db.Model(&domain.Workout{}).Where("status = ? AND created_at >= ?", domain.WorkoutStatusSkipped, timeFilter).Count(&skippedCount).Error; err != nil {
-		return nil, fmt.Errorf("failed to get skipped workout count: %w", err)
-	}
-	stats["skipped_workouts"] = int(skippedCount)
-
-	// 総重量
-	var totalWeight float64
-	if err := r.db.Model(&domain.Workout{}).Where("status = ? AND created_at >= ?", domain.WorkoutStatusCompleted, timeFilter).Select("SUM(weight * sets * reps)").Scan(&totalWeight).Error; err != nil {
-		return nil, fmt.Errorf("failed to get total weight: %w", err)
-	}
-	stats["total_weight_lifted"] = totalWeight
-
-	// 筋肉群別統計
-	var muscleGroupStats []struct {
-		MuscleGroup string `json:"muscle_group"`
-		Count       int    `json:"count"`
-	}
-	if err := r.db.Model(&domain.Workout{}).Where("created_at >= ?", timeFilter).Select("muscle_group, COUNT(*) as count").Group("muscle_group").Scan(&muscleGroupStats).Error; err != nil {
-		return nil, fmt.Errorf("failed to get muscle group stats: %w", err)
-	}
-
-	muscleGroupMap := make(map[string]int)
-	for _, stat := range muscleGroupStats {
-		muscleGroupMap[stat.MuscleGroup] = stat.Count
-	}
-	stats["muscle_group_stats"] = muscleGroupMap
-
-	return stats, nil
 }
