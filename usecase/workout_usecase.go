@@ -574,7 +574,6 @@ func (wm *WorkoutManager) GetHighIntensityWorkouts() ([]*domain.Workout, error) 
 		return nil, workoutErr
 	}
 
-	// Go基礎技術1: 効率的なフィルタリング処理
 	highIntensityWorkouts := make([]*domain.Workout, 0)
 	for _, w := range allWorkouts {
 		isHighDifficulty := w.Difficulty == domain.DifficultyAdvanced || w.Difficulty == domain.DifficultyBeast
@@ -584,14 +583,44 @@ func (wm *WorkoutManager) GetHighIntensityWorkouts() ([]*domain.Workout, error) 
 		}
 	}
 
-	// Go基礎技術2: strings.Builder + 事前容量確保でログメッセージ構築
 	logMessage := wm.buildHighIntensityLogMessage(len(allWorkouts), len(highIntensityWorkouts))
 	fmt.Print(logMessage)
+
+	// --- Generics活用例: 任意の数値条件で件数を集計してログに出す ---
+	// Weightが80.5以上の件数
+	heavyCount := countWorkoutsBy[float64](allWorkouts,
+		func(w *domain.Workout) float64 { return w.Weight },
+		func(v float64) bool { return v >= 80.5 },
+	)
+	// Setsが5以上の件数
+	highSetsCount := countWorkoutsBy[int](allWorkouts,
+		func(w *domain.Workout) int { return w.Sets },
+		func(v int) bool { return v >= 5 },
+	)
+	fmt.Printf("🔎 Generics filter summary: weight>=80.5=%d, sets>=5=%d\n", heavyCount, highSetsCount)
 
 	return highIntensityWorkouts, nil
 }
 
-// buildHighIntensityLogMessage Go基礎技術による効率的なログメッセージ構築
+// ジェネリクス関数用
+type IntOrFloat interface {
+	int | float64
+}
+
+func countWorkoutsBy[T IntOrFloat](workouts []*domain.Workout, selector func(*domain.Workout) T, filter func(T) bool) int {
+	if len(workouts) == 0 {
+		return 0
+	}
+	var count int
+	for _, w := range workouts {
+		value := selector(w)
+		if filter(value) {
+			count++
+		}
+	}
+	return count
+}
+
 func (wm *WorkoutManager) buildHighIntensityLogMessage(totalCount, filteredCount int) string {
 	var builder strings.Builder
 	// 概算容量を事前確保
@@ -604,9 +633,9 @@ func (wm *WorkoutManager) buildHighIntensityLogMessage(totalCount, filteredCount
 	builder.WriteString("件を抽出しました")
 
 	if filteredCount == 0 {
-		builder.WriteString(" - もっと重いものを持ち上げましょう！💪")
+		builder.WriteString(" - もっと重いものを持ち上げましょう！💪こんなもんじゃないだろう！")
 	} else if filteredCount > totalCount/2 {
-		builder.WriteString(" - 野獣レベルですね！🦍")
+		builder.WriteString(" - 野獣レベルですね！強すぎ🦍")
 	}
 
 	builder.WriteString("\n")
