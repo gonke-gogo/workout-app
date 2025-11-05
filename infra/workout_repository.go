@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -31,7 +32,7 @@ func (r *GORMRepository) CreateWorkout(workout *domain.Workout) error {
 func (r *GORMRepository) GetWorkout(id domain.WorkoutID) (*domain.Workout, error) {
 	var workout domain.Workout
 	if err := r.db.First(&workout, id).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("workout not found (id=%d): %w", id, err)
 		}
 		return nil, fmt.Errorf("failed to get workout (id=%d): %w", id, err)

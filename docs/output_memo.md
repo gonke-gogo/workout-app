@@ -391,6 +391,13 @@
 - リポジトリ層のテストをスタブ・モックで実装
   - repository/workout_repository_test.go
   - go-sqlmockを使用したモックテスト（実DBなしでテスト）
+  - sqlmock（モック）の大きな利点は「SQLと引数（および呼び出し順序）」まで検証できる点で、スタブでは得にくいメリットである
+  - トランザクション制御の検証
+    - ExpectRollback()で「エラー時に必ずROLLBACKされる」ことを契約として確認できる。
+    - 逆に成功時はExpectCommit()でCOMMITを要求できる。
+  - 呼び出し順序の検証
+    - ExpectBegin → ExpectExec/ExpectQuery → ExpectRollback/Commit の順序を厳密にチェックできる。
+
   
   - モック vs スタブ
     - スタブ: 特定の値を返すだけ（例: SQLiteインメモリDB）
