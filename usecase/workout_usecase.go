@@ -191,7 +191,6 @@ func (ve *ValidationErrors) Error() string {
 }
 
 // errValidator 冗長的なエラーチェックをまとめるための構造体
-// 「複数のエラーをまとめる方法」の評価項目に対応
 // errWriterパターンを参考に、複数のバリデーション処理を連続して行い、
 // 全てのバリデーションを実行し、全てのエラーを収集して返す
 type errValidator struct {
