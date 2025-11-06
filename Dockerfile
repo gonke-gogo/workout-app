@@ -18,7 +18,7 @@ RUN protoc --go_out=. --go_opt=paths=source_relative \
     proto/workout.proto
 
 # cmd/server/main.goのビルド
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main cmd/server/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -o main cmd/server/main.go
 
 FROM alpine:latest
 
