@@ -7,18 +7,18 @@ type WorkoutID int64
 
 // Workout ワークアウトのドメインモデル（エンティティ）
 type Workout struct {
-	ID           WorkoutID     `json:"id" gorm:"primaryKey;autoIncrement"`
-	ExerciseType ExerciseType  `json:"exercise_type" gorm:"not null;default:0"` // トレーニング種目（enum化）
-	Description  string        `json:"description,omitempty" gorm:"type:text"`  // 空の場合はJSONから除外
-	Status       WorkoutStatus `json:"status" gorm:"not null;default:0"`
-	Difficulty   Difficulty    `json:"difficulty" gorm:"not null;default:1"`
-	MuscleGroup  MuscleGroup   `json:"muscle_group" gorm:"not null;default:0"` // enum化
-	Sets         int           `json:"sets" gorm:"default:3"`
-	Reps         int           `json:"reps" gorm:"default:10"`
-	Weight       float64       `json:"weight,omitempty" gorm:"default:0"` // 0の場合はJSONから除外
-	Notes        string        `json:"notes,omitempty" gorm:"type:text"`  // 空の場合はJSONから除外
-	CreatedAt    time.Time     `json:"created_at" gorm:"autoCreateTime"`
-	UpdatedAt    time.Time     `json:"updated_at" gorm:"autoUpdateTime"`
+	ID           WorkoutID     `json:"id"`
+	ExerciseType ExerciseType  `json:"exercise_type"`         // トレーニング種目（enum化）
+	Description  string        `json:"description,omitempty"` // 空の場合はJSONから除外
+	Status       WorkoutStatus `json:"status"`
+	Difficulty   Difficulty    `json:"difficulty"`
+	MuscleGroup  MuscleGroup   `json:"muscle_group"` // enum化
+	Sets         int           `json:"sets"`
+	Reps         int           `json:"reps"`
+	Weight       float64       `json:"weight,omitempty"` // 0の場合はJSONから除外
+	Notes        string        `json:"notes,omitempty"`  // 空の場合はJSONから除外
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
 	CompletedAt  *time.Time    `json:"completed_at,omitempty"` // nilの場合はJSONから除外
 }
 

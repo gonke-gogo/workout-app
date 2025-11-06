@@ -709,3 +709,5 @@
 - 文字列結合　性能差チェック
   - go test ./server -bench=BenchmarkBuildWorkoutSummary_Bad -benchmem
   - go test ./server -bench=BenchmarkBuildWorkoutSummary_Good -benchmem
+
+docker compose exec mysql mysql -u workoutuser -pworkoutpass workoutdb 
